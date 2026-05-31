@@ -164,6 +164,12 @@ export function App() {
             report={viewed ? viewed.report : report}
             reportPending={viewed ? false : reportPending}
             transcribing={viewed ? false : transcribing}
+            durationMs={viewed ? viewed.durationMs : record?.durationMs ?? null}
+            goalSeconds={
+              viewed
+                ? viewed.context?.settings?.goalSeconds
+                : contextRef.current.settings?.goalSeconds
+            }
           />
         </>
       )}

@@ -41,7 +41,14 @@ export const EMPHASIS_PLACEHOLDER: Placeholder<EmphasisFinding[]> = {
         { word: 'result', stress: 0.26, stressed: false },
       ],
     },
-    { word: 'obviously', tStartMs: 18800, importance: 0.2, delivered: 0.8, verdict: 'over' },
+    {
+      word: 'obviously',
+      tStartMs: 18800,
+      importance: 0.2,
+      delivered: 0.8,
+      verdict: 'over',
+      context: 'which was obviously the easy part',
+    },
   ],
 };
 

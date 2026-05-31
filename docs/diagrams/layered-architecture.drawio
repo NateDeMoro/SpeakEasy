@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="Layered-Architecture">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="t1" value="Speech Coach — two methods, one modality-agnostic pipeline" style="text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="1240" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cap" value="1 · CAPTURE — browser, on-device" style="swimlane;startSize=30;html=1;fontSize=14;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="1240" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="mic" value="Microphone&#xa;(getUserMedia)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="cap">
+          <mxGeometry x="40" y="46" width="200" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="engine" value="Web Audio → live signals&#xa;+ MediaRecorder → audio clip" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="cap">
+          <mxGeometry x="320" y="46" width="320" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ctxin" value="You provide: slides / script / notes&#xa;+ audience &amp; setting" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;dashed=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="cap">
+          <mxGeometry x="720" y="46" width="300" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sig" value="2 · SIGNALS — modality-agnostic channels (one schema, video-ready)" style="swimlane;startSize=30;html=1;fontSize=14;fontStyle=1;fillColor=#eef3fc;strokeColor=#6c8ebf;fontColor=#1f3a5f;" vertex="1" parent="1">
+          <mxGeometry x="40" y="210" width="1240" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="s_vol" value="audio.volume" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="sig">
+          <mxGeometry x="30" y="44" width="160" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="s_pace" value="audio.pace" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="sig">
+          <mxGeometry x="230" y="44" width="160" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="s_pause" value="audio.pause" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="sig">
+          <mxGeometry x="430" y="44" width="160" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="s_pitch" value="audio.pitch" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="sig">
+          <mxGeometry x="630" y="44" width="160" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="s_tr" value="transcript&#xa;(Google Speech-to-Text)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="sig">
+          <mxGeometry x="830" y="44" width="160" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="s_vis" value="visual.*&#xa;(Stage 4)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;dashed=1;fillColor=#f5f5f5;strokeColor=#999999;fontColor=#999999;" vertex="1" parent="sig">
+          <mxGeometry x="1030" y="44" width="160" height="56" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ana" value="3 · ANALYZE — two methods" style="swimlane;startSize=30;html=1;fontSize=14;fontStyle=1;fillColor=#ffffff;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="370" width="1240" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="rt" value="Real-time metrics — on-device · live   (table stakes)" style="swimlane;startSize=30;html=1;fontSize=13;fontStyle=1;fillColor=#f0f4fb;strokeColor=#6c8ebf;fontColor=#1f3a5f;" vertex="1" parent="ana">
+          <mxGeometry x="30" y="46" width="540" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="rt_meters" value="Live meters&#xa;pace · pitch · volume · dead-air" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="rt">
+          <mxGeometry x="30" y="56" width="480" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="rt_nudge" value="One calm nudge" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="rt">
+          <mxGeometry x="30" y="140" width="480" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cb" value="Context-based metrics ★ — Google Gemini (Vertex AI) · post-talk   (our differentiator)" style="swimlane;startSize=30;html=1;fontSize=13;fontStyle=1;fillColor=#f3eefa;strokeColor=#9673a6;strokeWidth=2;fontColor=#5b3a78;" vertex="1" parent="ana">
+          <mxGeometry x="640" y="46" width="570" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="cb_ground" value="Grounded in: transcript + your material + audience &amp; setting" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;dashed=1;fillColor=#faf6fd;strokeColor=#9673a6;fontColor=#5b3a78;" vertex="1" parent="cb">
+          <mxGeometry x="30" y="44" width="510" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="cb_emph" value="Emphasis vs meaning ★" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="cb">
+          <mxGeometry x="30" y="104" width="240" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cb_tone" value="Tone vs content mismatch" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="cb">
+          <mxGeometry x="290" y="104" width="250" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cb_adv" value="Context-aware advice" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="cb">
+          <mxGeometry x="30" y="168" width="240" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="cb_cov" value="Coverage vs material" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="cb">
+          <mxGeometry x="290" y="168" width="250" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="out" value="4 · OUTPUT" style="swimlane;startSize=30;html=1;fontSize=14;fontStyle=1;fillColor=#eef7ec;strokeColor=#82b366;fontColor=#2d5a2d;" vertex="1" parent="1">
+          <mxGeometry x="40" y="710" width="1240" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="o_dash" value="Live Dashboard&#xa;(during the talk)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="out">
+          <mxGeometry x="60" y="50" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="o_rep" value="Coaching Report ★&#xa;(after you stop — incl. your live delivery stats)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="out">
+          <mxGeometry x="470" y="50" width="320" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="o_fs" value="Firestore (Firebase)&#xa;saved per user" style="shape=cylinder3;whiteSpace=wrap;html=1;fontSize=12;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#2d5a2d;" vertex="1" parent="out">
+          <mxGeometry x="900" y="40" width="260" height="72" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lg1" value="★ = our differentiator — absent from incumbents (e.g. Yoodli, Orai). Real-time delivery metrics are table stakes." style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#5b3a78;" vertex="1" parent="1">
+          <mxGeometry x="40" y="858" width="1240" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="lg2" value="Google stack: Speech-to-Text (transcript) · Gemini / Vertex AI (context analyses) · Firebase Auth + Firestore + Hosting · Cloud Run (API)." style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="40" y="884" width="1240" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="mic" target="engine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="4 channels" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.34;entryY=0;entryDx=0;entryDy=0;fontSize=10;" edge="1" parent="1" source="engine" target="sig">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="Google Speech-to-Text" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;exitX=0.8;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;" edge="1" parent="1" source="engine" target="s_tr">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="channels" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;exitX=0.24;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;" edge="1" parent="1" source="sig" target="rt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="channels + transcript" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;exitX=0.78;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;" edge="1" parent="1" source="sig" target="cb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="your material + audience" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.1;entryDx=0;entryDy=0;fontSize=10;strokeColor=#9673a6;" edge="1" parent="1" source="ctxin" target="cb">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1330" y="131" />
+              <mxPoint x="1330" y="439" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" value="live cues" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;" edge="1" parent="1" source="rt" target="o_dash">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="findings" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;strokeColor=#9673a6;" edge="1" parent="1" source="cb" target="o_rep">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="save" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;" edge="1" parent="1" source="o_rep" target="o_fs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

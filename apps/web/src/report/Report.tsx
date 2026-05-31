@@ -11,6 +11,7 @@ import {
 } from '@quack/shared';
 import { EMPHASIS_PLACEHOLDER, MISMATCH_PLACEHOLDER } from '../mock/placeholders.js';
 import { deliveryMetrics, VERDICT_COLOR, type Verdict } from './metrics.js';
+import { recordingTimeReadout } from './recordingTime.js';
 import './report.css';
 
 // --- transcript-derived pace (real WPM, chunked over time) ----------------------
@@ -85,6 +86,10 @@ export interface ReportProps {
   report: AggregateReport | null;
   reportPending: boolean;
   transcribing: boolean;
+  /** Total elapsed recording time, ms. Null when no completed recording. */
+  durationMs: number | null;
+  /** Target talk length, seconds, if the user set one; grades the recording time. */
+  goalSeconds?: number;
 }
 
 /**
@@ -94,14 +99,43 @@ export interface ReportProps {
  * card is real (the Gemini report). Emphasis-vs-meaning and tone–content mismatch are
  * clearly-labeled Stage 3 placeholders.
  */
-export function Report({ summaries, transcript, report, reportPending, transcribing }: ReportProps) {
+export function Report({
+  summaries,
+  transcript,
+  report,
+  reportPending,
+  transcribing,
+  durationMs,
+  goalSeconds,
+}: ReportProps) {
   const pace = transcript ? paceBreakdown(transcript) : null;
   const metrics = summaries ? deliveryMetrics(summaries, !!pace) : [];
   const coverage = report?.coverage;
   const fillerCount = transcript?.words.filter((w) => w.isDisfluency).length ?? 0;
+  const recTime = recordingTimeReadout(durationMs, goalSeconds);
 
   return (
     <div className="report">
+      <div className="recording-time">
+        <p className="recording-time__label">Recording time</p>
+        <div className="recording-time__row">
+          <span
+            className="recording-time__value"
+            style={recTime.verdict ? { color: VERDICT_COLOR[recTime.verdict] } : undefined}
+          >
+            {recTime.display}
+          </span>
+          {recTime.verdict && recTime.label && (
+            <span className="recording-time__verdict" style={{ color: VERDICT_COLOR[recTime.verdict] }}>
+              <span
+                className="recording-time__dot"
+                style={{ backgroundColor: VERDICT_COLOR[recTime.verdict] }}
+              />
+              {recTime.label}
+            </span>
+          )}
+        </div>
+      </div>
       <h2 className="report__heading">Delivery</h2>
       {pace && <PaceTimeline breakdown={pace} />}
       <div className="report__metrics">
@@ -229,6 +263,19 @@ function pct(x: number): string {
   return `${Math.round(x * 100)}%`;
 }
 
+/** A clause with the over-stressed word highlighted in place (first case-insensitive match). */
+function Clause({ text, focus }: { text: string; focus: string }) {
+  const idx = text.toLowerCase().indexOf(focus.toLowerCase());
+  if (idx < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className="emphasis__focus">{text.slice(idx, idx + focus.length)}</span>
+      {text.slice(idx + focus.length)}
+    </>
+  );
+}
+
 /**
  * Emphasis vs. meaning: the notable words where vocal stress and content importance diverged —
  * `under` (important but flat) and `over` (stressed but unimportant). `example` renders the
@@ -253,7 +300,13 @@ function EmphasisCard({ findings, example }: { findings: EmphasisFinding[]; exam
               <span className={`emphasis__verdict emphasis__verdict--${f.verdict}`}>
                 {f.verdict === 'under' ? 'under' : 'over'}
               </span>
-              <span className="emphasis__word">{f.word}</span>
+              <span className="emphasis__word">
+                {f.verdict === 'over' && f.context ? (
+                  <Clause text={f.context} focus={f.word} />
+                ) : (
+                  f.word
+                )}
+              </span>
               <span className="emphasis__scores">
                 meaning {pct(f.importance)} · delivered {pct(f.delivered)}
               </span>

@@ -57,6 +57,20 @@ reading"; `GEMINI_SYSTEM_INSTRUCTION` makes that the single source of truth for 
 inferring pace from `audio.pace`. Timeline stays the source of truth; no web/shared changes. Falls
 back to the syllable channel only for clips too short to chunk (<8 content words).
 
+## Report flagged "too fast" more readily than the live meter
+**Stage 3, pace bands (packages/shared + apps/api + apps/web). 2026-05-30.** The report's WPM
+"too fast" cutoff (`PACE_WPM_FAST_MIN=160`) was stricter than the live syllable-onset meter, which
+tolerates moderately fast speech ("a little fast" up to ~2.4 syll/s before reading "fast"). A talk
+the live nudge left alone could still come back "Too fast" in the report, and the "Good" band felt
+narrow. The two layers use different units (WPM vs SPS) so they can't match exactly, but the report
+read more aggressive than the user's live experience.
+
+**Fix:** Raised `PACE_WPM_FAST_MIN` 160 → 180 in `packages/shared/src/config.ts` (single source of
+truth). Good band is now 110–180 wpm; "Too fast" only fires above 180. Updates the pace timeline
+(`apps/web/src/report/Report.tsx`), `runAggregate` verdicts, and the Gemini prompt bands in
+lockstep. Slow threshold (110) unchanged. Live SPS bands untouched — only the report's WPM verdict
+moved closer to the live feel.
+
 ## Firestore 1 MiB doc limit (decision: persist summaries, not raw series)
 **Stage 2, persistence (apps/api/server.ts).** A full session's per-frame `series` (volume at
 20 Hz, pitch at 10 Hz, …) can exceed Firestore's 1 MiB document cap on longer talks.

@@ -25,11 +25,14 @@ import {
   GEMINI_TONE_INSTRUCTION,
   GEMINI_EMPHASIS_TEMPERATURE,
   GEMINI_TONE_TEMPERATURE,
+  MAX_TONE_FINDINGS,
   EMPHASIS_UNDER_DELTA,
+  EMPHASIS_UNDER_MIN_IMPORTANCE,
   EMPHASIS_OVER_DELTA,
   EMPHASIS_OVER_MIN_DELIVERED,
   EMPHASIS_MAX_UNDER,
   EMPHASIS_MAX_OVER,
+  EMPHASIS_CLAUSE_MAX_WORDS,
   EMPHASIS_STOPWORDS,
 } from '../config.js';
 
@@ -133,7 +136,7 @@ async function analyzeEmphasis(
   const text = res.text;
   if (!text) throw new Error('empty emphasis response');
   const parsed = JSON.parse(text) as { important?: { phrase: string; importance: number }[] };
-  return computeEmphasisVerdicts(words, parsed.important ?? []);
+  return computeEmphasisVerdicts(words, parsed.important ?? [], input.transcript?.text);
 }
 
 /** Tone–content mismatch — subjective, so the model owns the fields directly. */
@@ -156,7 +159,10 @@ async function analyzeTone(
   const text = res.text;
   if (!text) throw new Error('empty tone response');
   const parsed = JSON.parse(text) as { toneContentMismatch?: MismatchFinding[] };
-  return parsed.toneContentMismatch ?? [];
+  // Surface only the starkest mismatches: keep 'strong'-graded findings, capped.
+  return (parsed.toneContentMismatch ?? [])
+    .filter((m) => m.severity === 'strong')
+    .slice(0, MAX_TONE_FINDINGS);
 }
 
 function clamp01(x: number): number {
@@ -175,18 +181,59 @@ interface PhraseSpan {
 }
 
 /**
+ * Words after which a clause/sentence ends, derived from the punctuated transcript `text` (the bare
+ * word tokens carry no punctuation; the full text does). Aligns text tokens to words by a tolerant
+ * two-pointer walk and marks a word as a clause end when its text token ends with . ! ? ; : or a
+ * trailing comma. All-false when there is no text or no punctuation (caller then bounds the window).
+ */
+function clauseEnds(words: TranscriptWord[], text?: string): boolean[] {
+  const ends = new Array<boolean>(words.length).fill(false);
+  if (!text) return ends;
+  const tokens = text.split(/\s+/).filter(Boolean);
+  let t = 0;
+  for (let i = 0; i < words.length; i++) {
+    const target = normToken(words[i]!.text);
+    if (!target) continue;
+    for (let k = t; k < Math.min(tokens.length, t + 4); k++) {
+      if (normToken(tokens[k]!) === target) {
+        ends[i] = /[.!?;:,]$/.test(tokens[k]!);
+        t = k + 1;
+        break;
+      }
+    }
+  }
+  return ends;
+}
+
+/**
+ * The clause that contains word `i`: expand left until the previous word ended a clause, right
+ * until this word ends one, bounded to ±EMPHASIS_CLAUSE_MAX_WORDS so an unpunctuated transcript
+ * still yields a phrase-sized window rather than the whole talk.
+ */
+function clauseContext(words: TranscriptWord[], ends: boolean[], i: number): string {
+  let lo = i;
+  for (let guard = EMPHASIS_CLAUSE_MAX_WORDS; lo > 0 && !ends[lo - 1] && guard > 0; guard--) lo--;
+  let hi = i;
+  for (let guard = EMPHASIS_CLAUSE_MAX_WORDS; hi < words.length - 1 && !ends[hi] && guard > 0; guard--) hi++;
+  return words.slice(lo, hi + 1).map((w) => w.text).join(' ');
+}
+
+/**
  * Phrase-level emphasis grading. Important phrases are matched to contiguous transcript spans, then
  * each phrase is judged as a unit by its PEAK option word — emphasis is allowed to land on ANY of a
  * phrase's content words, so we flag `under` once per phrase only when none of them cleared the bar
- * (collapsing what used to be one flag per flat word). `over` is the inverse and stays per-word but
- * tightened to a genuine stress spike on an unimportant word. Both lists are capped.
+ * (collapsing what used to be one flag per flat word). `over` is the inverse: an unimportant word
+ * with a genuine stress spike, surfaced inside its surrounding clause (`context`) for readability.
+ * Both lists are capped.
  */
 function computeEmphasisVerdicts(
   words: TranscriptWord[],
   important: { phrase: string; importance: number }[],
+  text?: string,
 ): EmphasisFinding[] {
   const n = words.length;
   const normWords = words.map((w) => normToken(w.text));
+  const ends = clauseEnds(words, text);
   const importance = new Array<number>(n).fill(EMPHASIS_BASELINE_IMPORTANCE);
   const stressAt = (i: number) => clamp01(typeof words[i]!.stress === 'number' ? words[i]!.stress! : 0.5);
 
@@ -225,6 +272,7 @@ function computeEmphasisVerdicts(
   // UNDER: one finding per phrase; passes when any content (option) word clears the bar.
   const under: EmphasisFinding[] = [];
   for (const s of kept) {
+    if (s.importance < EMPHASIS_UNDER_MIN_IMPORTANCE) continue; // only genuinely important phrases
     const bar = s.importance - EMPHASIS_UNDER_DELTA; // a word "lands" the phrase if stress ≥ bar
     const optIdx: number[] = [];
     for (let k = s.start; k < s.start + s.len; k++) {
@@ -249,7 +297,8 @@ function computeEmphasisVerdicts(
   }
   under.sort((a, b) => (b.importance - b.delivered) - (a.importance - a.delivered));
 
-  // OVER: unimportant content words with a genuine stress spike (absolute floor + delta), capped.
+  // OVER: unimportant content words with a genuine stress spike (absolute floor + delta), each
+  // surfaced inside its surrounding clause for context. Capped.
   const over: EmphasisFinding[] = [];
   words.forEach((w, i) => {
     if (w.isDisfluency || EMPHASIS_STOPWORDS.has(normWords[i]!)) return;
@@ -257,7 +306,14 @@ function computeEmphasisVerdicts(
     const imp = importance[i]!;
     if (delivered < EMPHASIS_OVER_MIN_DELIVERED) return;
     if (delivered - imp < EMPHASIS_OVER_DELTA) return;
-    over.push({ word: w.text, tStartMs: w.tStartMs, importance: imp, delivered, verdict: 'over' });
+    over.push({
+      word: w.text,
+      tStartMs: w.tStartMs,
+      importance: imp,
+      delivered,
+      verdict: 'over',
+      context: clauseContext(words, ends, i),
+    });
   });
   over.sort((a, b) => b.delivered - a.delivered);
 
@@ -508,8 +564,9 @@ const TONE_SCHEMA = {
           contentSentiment: { type: Type.STRING },
           deliveredTone: { type: Type.STRING },
           detail: { type: Type.STRING },
+          severity: { type: Type.STRING, enum: ['strong', 'moderate'] },
         },
-        required: ['tStartMs', 'tEndMs', 'contentSentiment', 'deliveredTone', 'detail'],
+        required: ['tStartMs', 'tEndMs', 'contentSentiment', 'deliveredTone', 'detail', 'severity'],
       },
     },
   },

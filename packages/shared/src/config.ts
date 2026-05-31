@@ -28,7 +28,7 @@ export const PACE_FAST_MIN_SPS = 2.2;
 /** At/under this words/min reads as too slow. */
 export const PACE_WPM_SLOW_MAX = 110;
 /** Over this words/min reads as too fast. */
-export const PACE_WPM_FAST_MIN = 160;
+export const PACE_WPM_FAST_MIN = 180;
 
 // --- pitch-variation verdict bands (Hz, rolling std) ----------------------------
 /** Voiced pitch std below this reads as flat/monotone. */

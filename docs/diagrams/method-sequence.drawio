@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="Method-Sequence">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Speech Coach — request sequence: live (on-device) vs after-stop (context-based ★)" style="text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1;fontColor=#222222;" vertex="1" parent="1">
+          <mxGeometry x="20" y="10" width="1290" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="phaseA" value="DURING TALK — real-time metrics · on-device (no network)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#eef3fc;strokeColor=#6c8ebf;dashed=1;verticalAlign=top;align=left;fontStyle=1;fontSize=12;fontColor=#1f3a5f;spacingLeft=12;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="20" y="120" width="1290" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="phaseB" value="AFTER STOP — context-based metrics ★ · Gemini (our differentiator)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f5eefb;strokeColor=#9673a6;dashed=1;verticalAlign=top;align=left;fontStyle=1;fontSize=12;fontColor=#5b3a78;spacingLeft=12;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="20" y="300" width="1290" height="470" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note" value="Before talk: upload slides / script + set audience &amp; setting" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="86" width="320" height="26" as="geometry" />
+        </mxCell>
+
+        <mxCell id="L1" value="You (Speaker)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="44" width="150" height="740" as="geometry" />
+        </mxCell>
+        <mxCell id="L2" value="Browser" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="300" y="44" width="150" height="740" as="geometry" />
+        </mxCell>
+        <mxCell id="L3" value="API · Cloud Run" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="560" y="44" width="150" height="740" as="geometry" />
+        </mxCell>
+        <mxCell id="L4" value="Google AI&#xa;Speech-to-Text + Gemini" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#5b3a78;" vertex="1" parent="1">
+          <mxGeometry x="820" y="44" width="150" height="740" as="geometry" />
+        </mxCell>
+        <mxCell id="L5" value="Firestore&#xa;(Firebase)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#2d5a2d;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="44" width="150" height="740" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m1" value="speak (live audio)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="115" y="140" as="sourcePoint" />
+            <mxPoint x="375" y="140" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2" value="measure volume · pace · pause · pitch (every frame)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=1;fontSize=11;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="375" y="165" as="sourcePoint" />
+            <mxPoint x="375" y="195" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="500" y="165" />
+              <mxPoint x="500" y="195" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="live dashboard + one nudge" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;strokeColor=#999999;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="375" y="220" as="sourcePoint" />
+            <mxPoint x="115" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="m4" value="Stop" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="115" y="340" as="sourcePoint" />
+            <mxPoint x="375" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="audio clip" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="375" y="378" as="sourcePoint" />
+            <mxPoint x="635" y="378" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6" value="Speech-to-Text" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="635" y="416" as="sourcePoint" />
+            <mxPoint x="895" y="416" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m7" value="transcript" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;strokeColor=#999999;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="895" y="454" as="sourcePoint" />
+            <mxPoint x="635" y="454" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="signals + transcript + your material + audience" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="375" y="504" as="sourcePoint" />
+            <mxPoint x="635" y="504" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="Gemini ★: emphasis · tone · advice · coverage" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=11;strokeColor=#9673a6;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="635" y="544" as="sourcePoint" />
+            <mxPoint x="895" y="544" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m10" value="findings" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;strokeColor=#999999;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="895" y="584" as="sourcePoint" />
+            <mxPoint x="635" y="584" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m11" value="save session" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="635" y="624" as="sourcePoint" />
+            <mxPoint x="1155" y="624" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m12" value="coaching report" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;strokeColor=#999999;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="635" y="664" as="sourcePoint" />
+            <mxPoint x="375" y="664" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m13" value="context-based report ★" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;fontSize=11;fontStyle=1;strokeColor=#9673a6;strokeWidth=2;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="375" y="704" as="sourcePoint" />
+            <mxPoint x="115" y="704" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="legend" value="Solid = call · Dashed grey = return.   ★ = our differentiator (context-based coaching grounded in your material + audience).   Google: Speech-to-Text · Gemini · Firebase / Firestore · Cloud Run." style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="20" y="788" width="1290" height="40" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

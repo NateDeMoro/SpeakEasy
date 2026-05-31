@@ -37,6 +37,8 @@ export interface ContextFields {
   audienceBackground?: string;
   location?: string;
   presentationType?: string;
+  /** Target talk length in seconds; the report grades recording time against it. */
+  goalSeconds?: number;
   /** Anything else the user wants the coach to know. */
   notes?: string;
 }

@@ -88,5 +88,5 @@ export const VOL_TOO_LOUD_FRAC = 0.95; // above this reads as too loud / clippin
 export const PACE_IDLE_MAX = 0.5; // below this: not really speaking
 export const PACE_SLOW_MAX = 1.0; // slow → a little slow
 export const PACE_LITTLE_SLOW_MAX = 1.45; // a little slow → good
-export const PACE_GOOD_MAX = 1.95; // good → a little fast
-export const PACE_LITTLE_FAST_MAX = 2.4; // a little fast → fast
+export const PACE_GOOD_MAX = 2.3; // good → a little fast
+export const PACE_LITTLE_FAST_MAX = 2.8; // a little fast → fast

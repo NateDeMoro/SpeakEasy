@@ -13,6 +13,54 @@
   margin: var(--s-4) 0 0;
 }
 
+/* Recording time — prominent hero stat above the Delivery section. */
+.recording-time {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-bottom: var(--s-4);
+  border-bottom: 1px solid var(--c-hairline);
+}
+
+.recording-time__label {
+  margin: 0;
+  font-family: var(--t-mono-family);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--c-muted);
+}
+
+.recording-time__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-4);
+}
+
+.recording-time__value {
+  font-family: var(--t-display-family);
+  font-weight: var(--t-display-weight);
+  font-size: 44px;
+  line-height: 1;
+  color: var(--c-ink);
+}
+
+.recording-time__verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--t-display-family);
+  font-weight: var(--t-title-weight);
+  font-size: 14px;
+}
+
+.recording-time__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .report__metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -228,6 +276,13 @@
   font-family: var(--t-display-family);
   font-weight: var(--t-title-weight);
   color: var(--c-ink);
+}
+
+/* The over-stressed word, highlighted inside its clause context. */
+.emphasis__focus {
+  color: var(--c-meter-flag);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .emphasis__scores {

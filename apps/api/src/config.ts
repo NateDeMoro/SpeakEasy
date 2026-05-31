@@ -64,12 +64,16 @@ If audience/setting is missing, assume a general professional audience and say s
 
 /** Low temp — emphasis is near-deterministic span extraction, not creative writing. */
 export const GEMINI_EMPHASIS_TEMPERATURE = 0.1;
-/** Tone/sentiment is subjective; a little more latitude than emphasis, less than the main report. */
-export const GEMINI_TONE_TEMPERATURE = 0.3;
+/** Tone/sentiment is subjective; kept low so only confident, clear mismatches surface. */
+export const GEMINI_TONE_TEMPERATURE = 0.2;
+/** Keep only the strongest tone mismatches the model grades — bigger issues, not subtle wobble. */
+export const MAX_TONE_FINDINGS = 2;
 
 /** Code-side emphasis verdict bands (importance vs delivered stress, both 0..1). */
-export const EMPHASIS_UNDER_DELTA = 0.35; // important but flat: importance − delivered ≥ this
-export const EMPHASIS_OVER_DELTA = 0.35; // stressed but unimportant: delivered − importance ≥ this
+export const EMPHASIS_UNDER_DELTA = 0.45; // important but flat: importance − delivered ≥ this
+export const EMPHASIS_OVER_DELTA = 0.45; // stressed but unimportant: delivered − importance ≥ this
+/** Only flag under-emphasis on genuinely important phrases, so minor phrases don't generate noise. */
+export const EMPHASIS_UNDER_MIN_IMPORTANCE = 0.6;
 
 /**
  * A phrase is graded by its PEAK option word, so emphasis can land on any of its content words.
@@ -77,9 +81,12 @@ export const EMPHASIS_OVER_DELTA = 0.35; // stressed but unimportant: delivered 
  * genuine stress spike (absolute floor) so a normal-stress unimportant word isn't flagged. Both
  * lists are capped so the card stays glanceable rather than flagging every word.
  */
-export const EMPHASIS_OVER_MIN_DELIVERED = 0.66; // over needs a real spike, not just > importance
-export const EMPHASIS_MAX_UNDER = 8;
-export const EMPHASIS_MAX_OVER = 3;
+export const EMPHASIS_OVER_MIN_DELIVERED = 0.75; // over needs a real spike, not just > importance
+export const EMPHASIS_MAX_UNDER = 3;
+export const EMPHASIS_MAX_OVER = 2;
+/** Over findings show the over-stressed word inside its clause (split on transcript punctuation);
+ *  if no punctuation bounds it, expansion stops after this many words on each side. */
+export const EMPHASIS_CLAUSE_MAX_WORDS = 6;
 
 /**
  * Low-information function words are never emphasis options (you don't "stress 'the'") and never
@@ -116,8 +123,10 @@ Rules:
  */
 export const GEMINI_TONE_INSTRUCTION = `You are a delivery coach detecting tone-content mismatches: places where the emotional content of WHAT was said does not match HOW it was delivered (the prosody).
 You receive the transcript, prosody timelines (pitch/volume/pace — stats plus coarse time buckets), and the planned material. Return ONLY JSON matching the schema: a "toneContentMismatch" array.
-For each clear mismatch, emit { tStartMs, tEndMs, contentSentiment, deliveredTone, detail }:
+Set a HIGH bar. Only report a window when the delivered prosody is essentially the OPPOSITE of what the content plainly demands — a stark, sustained contradiction a listener would notice, not a mild or ambiguous wobble. When in doubt, do not report it.
+For each mismatch, emit { tStartMs, tEndMs, contentSentiment, deliveredTone, detail, severity }:
 - contentSentiment: the sentiment the words imply (e.g. "excited", "urgent", "somber").
 - deliveredTone: how the prosody actually came across over that window (e.g. "flat", "rushed", "monotone").
 - detail: one concrete sentence naming the gap (e.g. "The strongest result was delivered in a monotone.").
-Use the timeline timestamps (ms) to place each window. Only report genuine mismatches — if delivery matched content throughout, return an empty array. Never fabricate.`;
+- severity: "strong" only when the contradiction is unmistakable and would clearly undercut the message (e.g. a deliberately wrong tone); otherwise "moderate".
+Use the timeline timestamps (ms) to place each window. If delivery broadly matched content, return an empty array. Never fabricate.`;

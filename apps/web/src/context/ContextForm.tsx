@@ -4,7 +4,10 @@ import './context.css';
 
 type MaterialKind = MaterialRef['kind'];
 
-const SETTING_FIELDS: { key: keyof ContextFields; label: string; placeholder: string }[] = [
+/** Free-text setting fields (goalSeconds is numeric and handled separately). */
+type TextField = Exclude<keyof ContextFields, 'goalSeconds'>;
+
+const SETTING_FIELDS: { key: TextField; label: string; placeholder: string }[] = [
   { key: 'audience', label: 'Audience', placeholder: 'e.g. my thesis committee' },
   { key: 'audienceSize', label: 'Audience size', placeholder: 'e.g. about 8 people' },
   { key: 'audienceBackground', label: 'Audience background', placeholder: 'e.g. domain experts' },
@@ -13,8 +16,22 @@ const SETTING_FIELDS: { key: keyof ContextFields; label: string; placeholder: st
   { key: 'notes', label: 'Anything else', placeholder: 'e.g. keep it upbeat' },
 ];
 
+/** Parse a mm:ss (or m:ss) target into whole seconds. Returns undefined when empty/malformed. */
+function parseGoalSeconds(text: string): number | undefined {
+  const t = text.trim();
+  if (!t) return undefined;
+  const m = /^(\d{1,3}):([0-5]?\d)$/.exec(t);
+  if (!m) return undefined;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
 /** Assemble a SpeechContext, dropping empty material/fields so absence stays meaningful. */
-function buildContext(kind: MaterialKind, materialText: string, fields: ContextFields): SpeechContext {
+function buildContext(
+  kind: MaterialKind,
+  materialText: string,
+  fields: ContextFields,
+  goalText: string,
+): SpeechContext {
   const ctx: SpeechContext = {};
   const text = materialText.trim();
   if (text) {
@@ -23,9 +40,11 @@ function buildContext(kind: MaterialKind, materialText: string, fields: ContextF
   }
   const settings: ContextFields = {};
   for (const { key } of SETTING_FIELDS) {
-    const v = fields[key]?.trim();
-    if (v) settings[key] = v;
+    const v = fields[key];
+    if (typeof v === 'string' && v.trim()) settings[key] = v.trim();
   }
+  const goalSeconds = parseGoalSeconds(goalText);
+  if (goalSeconds !== undefined) settings.goalSeconds = goalSeconds;
   if (Object.keys(settings).length) ctx.settings = settings;
   return ctx;
 }
@@ -42,14 +61,15 @@ export function ContextForm({ onChange }: { onChange: (ctx: SpeechContext) => vo
   const [kind, setKind] = useState<MaterialKind>('script');
   const [materialText, setMaterialText] = useState('');
   const [fields, setFields] = useState<ContextFields>({});
+  const [goalText, setGoalText] = useState('');
 
-  const emit = (k: MaterialKind, text: string, f: ContextFields) =>
-    onChange(buildContext(k, text, f));
+  const emit = (k: MaterialKind, text: string, f: ContextFields, goal: string) =>
+    onChange(buildContext(k, text, f, goal));
 
-  const setField = (key: keyof ContextFields, value: string) => {
+  const setField = (key: TextField, value: string) => {
     const next = { ...fields, [key]: value };
     setFields(next);
-    emit(kind, materialText, next);
+    emit(kind, materialText, next, goalText);
   };
 
   return (
@@ -68,7 +88,7 @@ export function ContextForm({ onChange }: { onChange: (ctx: SpeechContext) => vo
             onChange={(e) => {
               const k = e.target.value as MaterialKind;
               setKind(k);
-              emit(k, materialText, fields);
+              emit(k, materialText, fields, goalText);
             }}
           >
             <option value="script">Script</option>
@@ -81,7 +101,7 @@ export function ContextForm({ onChange }: { onChange: (ctx: SpeechContext) => vo
             value={materialText}
             onChange={(e) => {
               setMaterialText(e.target.value);
-              emit(kind, e.target.value, fields);
+              emit(kind, e.target.value, fields, goalText);
             }}
           />
           <p className="field__hint">
@@ -104,6 +124,22 @@ export function ContextForm({ onChange }: { onChange: (ctx: SpeechContext) => vo
               />
             </div>
           ))}
+          <div className="field">
+            <label className="field__label" htmlFor="ctx-goal">
+              Target length
+            </label>
+            <input
+              id="ctx-goal"
+              className="field__input"
+              placeholder="mm:ss, e.g. 5:00"
+              inputMode="numeric"
+              value={goalText}
+              onChange={(e) => {
+                setGoalText(e.target.value);
+                emit(kind, materialText, fields, e.target.value);
+              }}
+            />
+          </div>
         </div>
       </div>
     </details>
