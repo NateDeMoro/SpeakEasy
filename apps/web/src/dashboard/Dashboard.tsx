@@ -14,7 +14,6 @@ import {
   PACE_GOOD_MAX,
   PACE_LITTLE_FAST_MAX,
 } from '../config.js';
-import { FILLER_CUE_PLACEHOLDER } from '../mock/placeholders.js';
 import { useSpokenCue } from '../coach/useSpokenCue.js';
 
 // --- volume: map a speaking dBFS range to a positive 0..100 level --------------
@@ -93,8 +92,8 @@ export interface DashboardProps {
 
 /**
  * Live rehearsal screen: the single calm nudge is the centerpiece (over a reactive atmospheric
- * orb). Pace and pitch keep their segmented light-up meters; volume, dead air, and the (not-yet
- * measured) filler cue sit in a thin peripheral strip. Raw numbers move to the dev readout.
+ * orb). Pace and pitch keep their segmented light-up meters; volume and dead air sit in a thin
+ * peripheral strip. Raw numbers move to the dev readout.
  */
 export function Dashboard({ snapshot }: DashboardProps) {
   const frac = volumeLevel(snapshot.volumeDbfs);
@@ -163,12 +162,6 @@ export function Dashboard({ snapshot }: DashboardProps) {
           label="Dead air"
           color={snapshot.inDeadAir ? 'var(--c-meter-flag)' : 'var(--c-hairline-strong)'}
           state={snapshot.inDeadAir ? `${(snapshot.deadAirMs / 1000).toFixed(1)}s silent` : 'speaking'}
-        />
-        {/* Placeholder: live filler detection needs streaming STT (FrontEndDesign §5). */}
-        <Cue
-          label="Fillers"
-          color="var(--c-hairline-strong)"
-          state={FILLER_CUE_PLACEHOLDER.measured ? '' : 'not measured yet'}
         />
       </div>
 

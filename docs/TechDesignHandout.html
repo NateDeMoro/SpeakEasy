@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SpeakEasy — Technical Design &amp; Stack</title>
+<style>
+  :root {
+    --ink: #16181d;
+    --muted: #61676f;
+    --hair: #d9dce1;
+    --hair-soft: #e9ebef;
+    --accent: #5e6ad2;        /* lavender — cloud / post path / brain */
+    --accent-tint: #eef0fb;
+    --live: #1f9d6b;          /* green — live / on-device path */
+    --live-tint: #e7f6ef;
+    --paper: #ffffff;
+    --band: #0d0e12;
+    --band-ink: #f7f8f8;
+    --band-muted: #9aa0ab;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #eceef1; color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    width: 8.5in; min-height: 11in; margin: 18px auto;
+    padding: 0.42in 0.5in 0.34in; background: var(--paper);
+    box-shadow: 0 2px 22px rgba(0,0,0,0.12);
+  }
+  svg.ic { width: 15px; height: 15px; flex: none; }
+  .big svg.ic { width: 19px; height: 19px; }
+
+  /* ---------- header ---------- */
+  header {
+    background: var(--band); color: var(--band-ink); border-radius: 12px;
+    padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand h1 { font-size: 21px; margin: 0; letter-spacing: -0.4px; font-weight: 700; }
+  .brand .dot { color: var(--accent); }
+  .brand .tag { font-size: 11px; color: var(--band-muted); font-weight: 500; }
+  header .meta { text-align: right; font-size: 9.5px; color: var(--band-muted); line-height: 1.5; }
+  header .meta b { color: var(--band-ink); font-weight: 600; }
+
+  .lede { margin: 10px 2px 12px; font-size: 11px; line-height: 1.5; color: var(--muted); }
+  .lede b { color: var(--ink); font-weight: 600; }
+
+  h2 {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+    margin: 0 0 8px; color: var(--muted); font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+  }
+  h2::after { content: ""; flex: 1; height: 1px; background: var(--hair); }
+
+  /* ---------- HERO: two paths over one capture ---------- */
+  .hero { display: flex; gap: 10px; align-items: stretch; margin-bottom: 13px; }
+  .capture {
+    width: 118px; flex: none; border: 1.5px solid var(--ink); border-radius: 11px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 10px 8px; gap: 6px;
+  }
+  .capture .iconwrap {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .capture .iconwrap svg.ic { width: 18px; height: 18px; }
+  .capture b { font-size: 11px; }
+  .capture span { font-size: 8.4px; color: var(--muted); line-height: 1.35; }
+
+  .lanes { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .lane {
+    position: relative; flex: 1; border: 1px solid var(--hair); border-radius: 11px;
+    padding: 8px 11px 9px; display: flex; flex-direction: column;
+  }
+  .lane.live { border-left: 4px solid var(--live); background: linear-gradient(90deg, var(--live-tint), #fff 55%); }
+  .lane.post { border-left: 4px solid var(--accent); background: linear-gradient(90deg, var(--accent-tint), #fff 55%); }
+  .lane::before {
+    content: "→"; position: absolute; left: -16px; top: 50%; transform: translateY(-50%);
+    font-size: 15px; font-weight: 700;
+  }
+  .lane.live::before { color: var(--live); }
+  .lane.post::before { color: var(--accent); }
+  .lane .head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .lane .head .tagchip {
+    font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 2px 6px; border-radius: 20px; color: #fff;
+  }
+  .lane.live .tagchip { background: var(--live); }
+  .lane.post .tagchip { background: var(--accent); }
+  .lane .head b { font-size: 11px; }
+
+  /* mini pipeline inside a lane */
+  .pipe { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .step {
+    display: inline-flex; align-items: center; gap: 4px;
+    border: 1px solid var(--hair); border-radius: 7px; padding: 3px 7px;
+    font-size: 8.7px; font-weight: 600; background: #fff; white-space: nowrap;
+  }
+  .step svg.ic { width: 12px; height: 12px; }
+  .step.out { color: #fff; border: none; }
+  .lane.live .step.out { background: var(--live); }
+  .lane.post .step.out { background: var(--accent); }
+  .sep { color: var(--muted); font-weight: 700; font-size: 11px; }
+  .lane .sub { margin-top: 6px; font-size: 8.6px; color: var(--muted); line-height: 1.4; }
+  .lane .sub b { color: var(--ink); }
+
+  /* threshold chips under live lane */
+  .rules { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+  .rule {
+    font-size: 8px; border: 1px solid var(--live); color: #18764f; border-radius: 6px;
+    padding: 2px 6px; background: #fff; font-variant-numeric: tabular-nums;
+  }
+  .rule b { color: var(--ink); }
+
+  /* ---------- lower grid ---------- */
+  .grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; }
+
+  /* google stack tiers */
+  .stackwrap { display: flex; gap: 8px; }
+  .rail {
+    flex: none; width: 26px; border: 1px dashed var(--accent); border-radius: 8px;
+    background: var(--accent-tint); display: flex; align-items: center; justify-content: center;
+  }
+  .rail span {
+    writing-mode: vertical-rl; transform: rotate(180deg);
+    font-size: 8px; font-weight: 700; letter-spacing: 0.4px; color: var(--accent); text-align: center;
+  }
+  .tiers { flex: 1; display: flex; flex-direction: column; }
+  .tier {
+    border: 1px solid var(--hair); border-radius: 9px; padding: 6px 9px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tier .label {
+    font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted);
+    font-weight: 700; width: 50px; flex: none;
+  }
+  .tier .prod { font-size: 10px; font-weight: 700; }
+  .tier .role { font-size: 8.3px; color: var(--muted); margin-left: auto; text-align: right; max-width: 52%; line-height: 1.3; }
+  .tier.entry { border-style: solid; border-color: var(--ink); }
+  .tier.brain { border-color: var(--accent); background: var(--accent-tint); }
+  .tier.brain .prod { color: var(--accent); }
+  .down { text-align: center; color: var(--hair); font-size: 11px; line-height: 0.7; margin: 1px 0; }
+
+  /* stat chips */
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .stat { border: 1px solid var(--hair-soft); border-radius: 9px; padding: 7px 9px; }
+  .stat .n { font-size: 19px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat .n.live { color: var(--live); }
+  .stat .k { font-size: 8.6px; font-weight: 700; margin-top: 3px; }
+  .stat .d { font-size: 7.8px; color: var(--muted); line-height: 1.35; margin-top: 1px; }
+
+  code { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 8.4px; background: #f1f2f5; padding: 0.5px 4px; border-radius: 3px; color: #30343b; }
+
+  /* ---------- context-aware report flow ---------- */
+  .flowband { display: flex; align-items: stretch; gap: 9px; margin-top: 2px; }
+  .inputs { flex: none; width: 150px; display: flex; flex-direction: column; gap: 5px; }
+  .inchip {
+    border: 1px solid var(--hair); border-radius: 8px; padding: 5px 8px;
+    display: flex; align-items: center; gap: 7px; font-size: 8.7px;
+  }
+  .inchip svg.ic { width: 13px; height: 13px; color: var(--muted); }
+  .inchip b { font-size: 9px; display: block; }
+  .inchip span { font-size: 7.6px; color: var(--muted); line-height: 1.3; display: block; }
+  .barrow { display: flex; align-items: center; color: var(--accent); font-size: 18px; font-weight: 700; flex: none; }
+  .enginenode {
+    flex: none; width: 96px; border: 1.5px solid var(--accent); background: var(--accent-tint);
+    border-radius: 9px; padding: 8px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; gap: 4px;
+  }
+  .enginenode svg.ic { width: 18px; height: 18px; color: var(--accent); }
+  .enginenode b { font-size: 10px; color: var(--accent); }
+  .enginenode span { font-size: 7.6px; color: var(--muted); line-height: 1.3; }
+  .outputs { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .ochip { border: 1px solid var(--hair-soft); border-left: 3px solid var(--accent); border-radius: 7px; padding: 5px 8px; }
+  .ochip b { font-size: 8.8px; display: block; }
+  .ochip span { font-size: 7.7px; color: var(--muted); line-height: 1.35; display: block; }
+
+  /* ---------- roadmap stepper ---------- */
+  .roadmap { display: flex; gap: 0; margin-top: 4px; }
+  .rstep { flex: 1; position: relative; padding-top: 16px; text-align: center; }
+  .rstep::before { content: ""; position: absolute; top: 5px; left: 0; right: 0; height: 2px; background: var(--hair); }
+  .rstep:first-child::before { left: 50%; }
+  .rstep:last-child::before { right: 50%; }
+  .rstep .rdot {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid var(--paper);
+    box-shadow: 0 0 0 1.5px var(--accent);
+  }
+  .rstep.next .rdot { background: var(--paper); box-shadow: 0 0 0 1.5px var(--live); }
+  .rstep.next::before { background: repeating-linear-gradient(90deg, var(--live) 0 4px, transparent 4px 8px); }
+  .rstep .sn { font-size: 7.5px; font-weight: 700; letter-spacing: 0.4px; color: var(--accent); text-transform: uppercase; }
+  .rstep.next .sn { color: var(--live); }
+  .rstep .sl { font-size: 8.6px; font-weight: 600; margin-top: 1px; padding: 0 4px; line-height: 1.25; }
+  .rstep .sd { font-size: 7.4px; color: var(--muted); margin-top: 1px; padding: 0 5px; line-height: 1.25; }
+  .rstep .badge { font-size: 6.8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--live); }
+
+  /* ---------- live spoken-coaching band ---------- */
+  .audioband { display: flex; align-items: stretch; gap: 9px; margin-top: 2px; }
+  .anode {
+    flex: none; width: 104px; border: 1.5px solid var(--live); background: var(--live-tint);
+    border-radius: 9px; padding: 8px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; gap: 4px;
+  }
+  .anode svg.ic { width: 18px; height: 18px; color: var(--live); }
+  .anode b { font-size: 10px; color: #18764f; }
+  .anode span { font-size: 7.6px; color: var(--muted); line-height: 1.3; }
+  .aflow {
+    flex: 1; border: 1px solid var(--hair); border-left: 4px solid var(--live); border-radius: 11px;
+    padding: 9px 12px; display: flex; flex-direction: column; justify-content: center;
+    background: linear-gradient(90deg, var(--live-tint), #fff 55%);
+  }
+  .aflow .step.out { background: var(--live); color: #fff; border: none; }
+  .aflow .sub { margin-top: 7px; font-size: 8.7px; color: var(--muted); line-height: 1.45; }
+  .aflow .sub b { color: var(--ink); }
+
+  /* ---------- footer ---------- */
+  footer {
+    margin-top: 12px; border-top: 1.5px solid var(--accent); padding-top: 7px;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    font-size: 8.6px; color: var(--muted);
+  }
+  footer .stack b { color: var(--ink); font-weight: 700; }
+  footer .url { color: var(--accent); font-weight: 700; white-space: nowrap; }
+
+  @page { size: letter; margin: 0; }
+  @media print {
+    html, body { background: #fff; }
+    .page { width: auto; min-height: auto; margin: 0; box-shadow: none; padding: 0.4in 0.5in; }
+    header, .tier.brain, .rail, .lane, .step.out, .capture .iconwrap, code, .lane.live, .lane.post { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="brand">
+      <h1>SpeakEasy<span class="dot">.</span></h1>
+      <span class="tag">Technical Design &amp; Stack — judge handout</span>
+    </div>
+    <div class="meta">
+      <b>Browser-based real-time speech coach</b><br />
+      Built on Google, top to bottom · QuackHacks Google Track
+    </div>
+  </header>
+
+  <p class="lede">
+    Listens to a rehearsal, gives a <b>light live nudge</b> — on screen or spoken aloud — then
+    returns a <b>context-aware report</b> judged against the speaker's own slides &amp; audience —
+    including where their <b>tone contradicts their words</b>. One capture, two engines.
+  </p>
+
+  <!-- HERO: two paths over one capture -->
+  <h2>Two paths over one capture</h2>
+  <div class="hero">
+    <div class="capture">
+      <div class="iconwrap">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21.5"/><line x1="8" y1="21.5" x2="16" y2="21.5"/></svg>
+      </div>
+      <b>One mic capture</b>
+      <span>Web Audio API · MediaRecorder · React+Vite SPA</span>
+    </div>
+
+    <div class="lanes">
+      <!-- LIVE -->
+      <div class="lane live">
+        <div class="head">
+          <span class="tagchip">Live · on-device</span>
+          <b>Real-time nudge</b>
+        </div>
+        <div class="pipe">
+          <span class="step">volume</span><span class="step">pitch</span>
+          <span class="step">pace</span><span class="step">pauses</span>
+          <span class="sep">→</span>
+          <span class="step">rule engine</span>
+          <span class="sep">→</span>
+          <span class="step out big"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8 8 0 0 1-11.6 7.1L4 20l1.4-5.3A8 8 0 1 1 21 11.5z"/></svg>one calm nudge</span>
+        </div>
+        <div class="rules">
+          <span class="rule">pace <b>&gt; 2.2</b> syll/s</span>
+          <span class="rule">pitch var <b>&lt; 12</b> Hz</span>
+          <span class="rule">vol <b>&lt; −45</b> dBFS</span>
+          <span class="rule">silence <b>&gt; 2</b> s</span>
+        </div>
+      </div>
+
+      <!-- POST -->
+      <div class="lane post">
+        <div class="head">
+          <span class="tagchip">On stop · cloud</span>
+          <b>Context report + tone</b>
+        </div>
+        <div class="pipe">
+          <span class="step">clip</span>
+          <span class="sep">→</span>
+          <span class="step"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a4 4 0 0 0 .9-7.9A6 6 0 0 0 6.3 9.5 4.5 4.5 0 0 0 7 18z"/></svg>Cloud Run</span>
+          <span class="sep">→</span>
+          <span class="step">Speech-to-Text v2</span>
+          <span class="step"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.7 5L19 10l-5.3 2L12 17l-1.7-5L5 10l5.3-2z"/></svg>Gemini ×3</span>
+          <span class="sep">→</span>
+          <span class="step out big"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="16.5" x2="13" y2="16.5"/></svg>report</span>
+        </div>
+        <div class="sub">
+          <b>Gemini judges meaning; the math judges delivery.</b> The report reads every metric through
+          your slides + audience (pace, density, coverage). <b>Tone</b> flags where prosody is the
+          opposite of the words — the verdict lives in the disagreement.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE SPOKEN COACHING -->
+  <h2 style="margin-top:13px">Hands-free coaching — built for your ears, so your eyes stay up</h2>
+  <div class="audioband">
+    <div class="anode">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polygon points="4 9 4 15 8 15 13 19 13 5 8 9 4 9"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19.5 6a8 8 0 0 1 0 12"/></svg>
+      <b>Web Speech</b>
+      <span>browser text-to-speech · opt-in</span>
+    </div>
+    <div class="aflow">
+      <div class="pipe">
+        <span class="step">condition holds 3 s</span>
+        <span class="sep">→</span>
+        <span class="step out big"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polygon points="4 9 4 15 8 15 13 19 13 5 8 9 4 9"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>speaks one short cue</span>
+        <span class="sep">→</span>
+        <span class="step">10 s cooldown</span>
+      </div>
+      <div class="sub">A deliberately higher bar than the on-screen nudge — speech interrupts, so it waits longer and rests longer, and never nags. Pace &amp; volume cues like <b>"ease off the pace"</b> play aloud through speakers or earbuds, so you can rehearse with your eyes on the room instead of the screen.</div>
+    </div>
+  </div>
+
+  <!-- LOWER GRID -->
+  <div class="grid">
+    <!-- Google stack -->
+    <div>
+      <h2>Google stack, top to bottom</h2>
+      <div class="stackwrap">
+        <div class="rail"><span>Cloud Build · ADC — no API keys</span></div>
+        <div class="tiers">
+          <div class="tier entry">
+            <span class="label">Entry</span>
+            <span class="prod">Browser SPA</span>
+            <span class="role">mic · live nudge · renders report</span>
+          </div>
+          <div class="down">↓</div>
+          <div class="tier">
+            <span class="label">Edge</span>
+            <span class="prod">Firebase Hosting + Auth</span>
+            <span class="role">serves SPA · Google sign-in · <code>/api</code> rewrite</span>
+          </div>
+          <div class="down">↓</div>
+          <div class="tier">
+            <span class="label">Compute</span>
+            <span class="prod">Cloud Run</span>
+            <span class="role">stateless Hono API · verifies ID token</span>
+          </div>
+          <div class="down">↓</div>
+          <div class="tier brain">
+            <span class="label">AI / ML</span>
+            <span class="prod">Vertex AI ★</span>
+            <span class="role">Speech-to-Text v2 + Gemini 2.5 Flash</span>
+          </div>
+          <div class="down">↓</div>
+          <div class="tier">
+            <span class="label">Data</span>
+            <span class="prod">Cloud Firestore</span>
+            <span class="role"><code>users/{uid}/sessions</code> · path-owned</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stat chips -->
+    <div>
+      <h2>The engineering, in numbers</h2>
+      <div class="stats">
+        <div class="stat">
+          <div class="n">×3</div>
+          <div class="k">Gemini 2.5 Flash calls</div>
+          <div class="d">filler recovery · report · tone — each degrades independently</div>
+        </div>
+        <div class="stat">
+          <div class="n">0</div>
+          <div class="k">API keys in the repo</div>
+          <div class="d">every Google call authenticates via ADC / service account</div>
+        </div>
+        <div class="stat">
+          <div class="n live">1.5<span style="font-size:11px">/</span>2.5<span style="font-size:11px">s</span></div>
+          <div class="k">nudge hysteresis</div>
+          <div class="d">sustain / cooldown — coaches without nagging</div>
+        </div>
+        <div class="stat">
+          <div class="n live">&lt;60<span style="font-size:11px">s</span></div>
+          <div class="k">parallel STT chunks</div>
+          <div class="d">long clips sliced at pauses, recognized concurrently, stitched</div>
+        </div>
+        <div class="stat">
+          <div class="n">1.0·0.8·0.6</div>
+          <div class="k">per-word stress weights</div>
+          <div class="d">z-scored loud · pitch · duration → weights the transcript</div>
+        </div>
+        <div class="stat">
+          <div class="n">1</div>
+          <div class="k">modality-agnostic schema</div>
+          <div class="d">per-channel time-series → Stage-4 video is just more channels</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTEXT-AWARE REPORT (the differentiator) -->
+  <h2 style="margin-top:13px">Why the report is different — it reads your actual talk</h2>
+  <div class="flowband">
+    <div class="inputs">
+      <div class="inchip">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><polyline points="14 3 14 8 19 8"/></svg>
+        <div><b>Slides · script · notes</b><span>PDF, image or text — pasted or uploaded</span></div>
+      </div>
+      <div class="inchip">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1"/><path d="M17 7a3 3 0 0 1 0 6"/></svg>
+        <div><b>Audience &amp; setting</b><span>size · background · location · talk type</span></div>
+      </div>
+    </div>
+    <div class="barrow">→</div>
+    <div class="enginenode">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.7 5L19 10l-5.3 2L12 17l-1.7-5L5 10l5.3-2z"/></svg>
+      <b>Gemini</b>
+      <span>reads the material natively, infers what "good" means for THIS room</span>
+    </div>
+    <div class="barrow">→</div>
+    <div class="outputs">
+      <div class="ochip"><b>Fit summary</b><span>energy, formality &amp; density judged for this audience — not a generic ideal</span></div>
+      <div class="ochip"><b>Prioritized advice</b><span>highest-leverage fixes first, each citing channel evidence</span></div>
+      <div class="ochip"><b>Coverage</b><span>points covered vs. missed · off-script deviations · running long</span></div>
+      <div class="ochip"><b>Tone mismatch</b><span>words vs. prosody — only strong, sustained contradictions</span></div>
+    </div>
+  </div>
+
+  <!-- ROADMAP -->
+  <h2 style="margin-top:13px">Roadmap — built modality-agnostic, so video just slots in</h2>
+  <div class="roadmap">
+    <div class="rstep"><div class="rdot"></div><div class="sn">Stage 0</div><div class="sl">Capture</div><div class="sd">mic + live audio signals</div></div>
+    <div class="rstep"><div class="rdot"></div><div class="sn">Stage 1</div><div class="sl">Live dashboard</div><div class="sd">STT, nudge + context form</div></div>
+    <div class="rstep"><div class="rdot"></div><div class="sn">Stage 2</div><div class="sl">Aggregate report</div><div class="sd">context-aware Gemini report</div></div>
+    <div class="rstep"><div class="rdot"></div><div class="sn">Stage 3</div><div class="sl">Differentiators</div><div class="sd">per-word stress + tone</div></div>
+    <div class="rstep next"><div class="rdot"></div><div class="sn">Stage 4</div><div class="sl">Webcam layer</div><div class="sd">MediaPipe gaze + expression</div><div class="badge">Next</div></div>
+  </div>
+
+  <footer>
+    <div class="stack">
+      <b>Google tech:</b> Firebase Hosting · Firebase Auth · Cloud Run · Vertex AI (Speech-to-Text v2 + Gemini 2.5 Flash) · Cloud Firestore · Cloud Build · ADC
+    </div>
+    <div class="url">uoo-quackathon26eug-8210.web.app</div>
+  </footer>
+
+</div>
+</body>
+</html>

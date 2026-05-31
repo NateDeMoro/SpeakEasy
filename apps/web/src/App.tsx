@@ -113,7 +113,7 @@ export function App() {
   if (!user) {
     return (
       <div className="app">
-        <h1 className="app__title">Speech Practice Coach</h1>
+        <h1 className="app__title">SpeakEasy</h1>
         <p className="app__subtitle">
           Sign in to rehearse and keep your practice history. Volume, pace, pitch, and dead air are
           tracked live with a single calm nudge; a full context-aware report comes after you stop.
@@ -130,7 +130,7 @@ export function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <h1 className="app__title">Speech Practice Coach</h1>
+        <h1 className="app__title">SpeakEasy</h1>
         <div className="app__account">
           {user.email && (
             <span className="app__email" title={user.email}>

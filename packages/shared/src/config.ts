@@ -32,6 +32,6 @@ export const PACE_WPM_FAST_MIN = 190;
 
 // --- pitch-variation verdict bands (Hz, rolling std) ----------------------------
 /** Voiced pitch std below this reads as flat/monotone. */
-export const PITCH_MONOTONE_MAX_HZ = 8;
+export const PITCH_MONOTONE_MAX_HZ = 12;
 /** Between monotone and this reads as varied; above this reads as expressive. */
-export const PITCH_VARIED_MAX_HZ = 25;
+export const PITCH_VARIED_MAX_HZ = 38;

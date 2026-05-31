@@ -34,9 +34,8 @@ is fetched.
 | src/audio/Recorder.ts | builds SessionRecord (+ optional context) from samples | changing how sessions are recorded |
 | src/audio/useAudioCapture.ts | React binding + STT-on-stop (WAV-encode→chunk→stitch→stress→gap-fillers) + summarize + report fetch; all clips upload as WAV | wiring capture into UI |
 | src/context/ContextForm.tsx | paste material + audience/setting fields → SpeechContext; optional `initialContext` prefills (remount via `key`) for "Reuse last request" | editing context capture |
-| src/dashboard/ | live screen: nudge centerpiece + reactive orb + segmented pace/pitch meters + cue strip | editing the live dashboard |
-| src/report/ | post-session report: real metrics + 4-quarter pace timeline + transcript (stress-weighted) + Gemini advice + real tone card (placeholder fallback when no material/old session) | editing the report |
-| src/mock/placeholders.ts | typed `measured:false` stub data (shaped to `@quack/shared`) | stubbing an unbuilt signal |
+| src/dashboard/ | live screen: nudge centerpiece + reactive orb + segmented pace/pitch meters + volume/dead-air cue strip | editing the live dashboard |
+| src/report/ | post-session report: real metrics + 4-quarter pace timeline + transcript (stress-weighted) + Gemini advice + real tone card (rendered only when Gemini returns findings) | editing the report |
 | src/theme/ | Dual-palette tokens: dark `:root` default + light `[data-theme=light]` override + orb utility; `ThemeToggle.tsx` (live light/dark switch, persisted) | restyling / swapping design system / theming |
 | src/coach/ | opt-in spoken cues (Web Speech): `useAudioCoach` (persisted enable toggle), `AudioCoachControl` (idle+live), `useSpokenCue` (on a fresh `audioCue`: speaks AND returns the phrase so the Dashboard hero shows it in place of the nudge) | editing the spoken-cue layer |
 
@@ -44,7 +43,7 @@ is fetched.
 - Verdict bands (pace/pitch) come from `@quack/shared/config.ts` (single source for live + report);
   other audio thresholds live in `src/config.ts`. Dashboard's fine-grained pace buckets are
   web-local on purpose (they diverge from the nudge's `PACE_FAST_MIN_SPS` — see Problems.md).
-- Stub-first: never render a bare `0` for an unmeasured signal — use a `measured:false` placeholder.
+- No fake data: never render a bare `0` or illustrative/example data for an unmeasured signal — omit the card/cue until its real data source lands.
 - Dev-only UI (raw readouts, tuners) gated behind `import.meta.env.DEV`.
 - Two live decision layers: the always-on visual `NudgeEngine` and the opt-in spoken `SpeechCoach`
   (higher bar — 3s sustain). Both read the same `@quack/shared` bands; only the loud-volume cue

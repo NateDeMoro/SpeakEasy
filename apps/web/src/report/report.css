@@ -279,22 +279,3 @@
   line-height: 1.5;
   color: var(--c-body);
 }
-
-/* Dimmed illustrative state shown when real data is absent (no material / old session). */
-.placeholder {
-  opacity: 0.85;
-}
-
-.placeholder__tag {
-  display: inline-block;
-  margin-left: var(--s-2);
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--c-muted);
-  background: var(--c-surface-strong);
-  border-radius: var(--radius-pill);
-  padding: 2px 8px;
-  vertical-align: middle;
-}

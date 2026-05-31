@@ -8,7 +8,6 @@ import {
   PACE_WPM_SLOW_MAX,
   PACE_WPM_FAST_MIN,
 } from '@quack/shared';
-import { MISMATCH_PLACEHOLDER } from '../mock/placeholders.js';
 import { deliveryMetrics, VERDICT_COLOR, type Verdict } from './metrics.js';
 import { recordingTimeReadout } from './recordingTime.js';
 import './report.css';
@@ -95,8 +94,8 @@ export interface ReportProps {
  * Post-session report. Renders identically for a just-finished rehearsal and a stored one from
  * history (both supply summaries + transcript + report). Delivery-metric cards and the transcript
  * (with filler highlighting) are real (local summaries / Stage-1 STT); the context-aware advice
- * card is real (the Gemini report). Tone–content mismatch falls back to a clearly-labeled
- * placeholder when no real finding is present.
+ * card is real (the Gemini report). The tone–content mismatch card renders only when the Gemini
+ * report supplies real findings.
  */
 export function Report({
   summaries,
@@ -244,30 +243,20 @@ export function Report({
         )}
       </div>
 
-      {report?.toneContentMismatch ? (
-        <ToneCard findings={report.toneContentMismatch} />
-      ) : (
-        <ToneCard findings={MISMATCH_PLACEHOLDER.sample} example />
-      )}
+      {report?.toneContentMismatch && <ToneCard findings={report.toneContentMismatch} />}
     </div>
   );
 }
 
 /**
  * Tone–content mismatch: windows where the content's sentiment and the delivered prosody diverged.
- * `example` renders the illustrative placeholder dimmed and tagged.
+ * Only rendered when the Gemini report supplies real findings.
  */
-function ToneCard({ findings, example }: { findings: MismatchFinding[]; example?: boolean }) {
+function ToneCard({ findings }: { findings: MismatchFinding[] }) {
   return (
-    <div className={`card mismatch${example ? ' placeholder' : ''}`}>
-      <p className="card__label">
-        Tone–content mismatch
-        {example && <span className="placeholder__tag">example</span>}
-      </p>
-      {example && (
-        <p className="card__hint">A full-length rehearsal surfaces these from your prosody.</p>
-      )}
-      {!example && findings.length === 0 ? (
+    <div className="card mismatch">
+      <p className="card__label">Tone–content mismatch</p>
+      {findings.length === 0 ? (
         <p className="card__hint">Your delivered tone matched the content throughout.</p>
       ) : (
         <ul className="mismatch__list">
