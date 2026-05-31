@@ -75,7 +75,7 @@ export const GAP_PITCH_FLAT_HZ = 12; // in-window pitch std below this reads as 
 export const STT_MAX_SEGMENT_MS = 55000;
 
 // --- dashboard meters (dashboard/Dashboard.tsx) ---------------------------------
-export const VOL_FLOOR_DB = -55; // ~silence reads 0
+export const VOL_FLOOR_DB = -45; // ~silence reads 0
 export const VOL_CEIL_DB = 0; // only a shout / clipping reaches 100
 // Volume verdict fractions of the floor→ceil range — shared by the live meter color and the
 // report's "Too quiet / Good / Too loud" category so live and report stay in lockstep.
@@ -86,7 +86,7 @@ export const VOL_TOO_LOUD_FRAC = 0.95; // above this reads as too loud / clippin
 // between 1.95 and 2.4 before reading "fast", so it shifts before the nudge nags. See
 // `@quack/shared` config.ts.
 export const PACE_IDLE_MAX = 0.5; // below this: not really speaking
-export const PACE_SLOW_MAX = 1.0; // slow → a little slow
-export const PACE_LITTLE_SLOW_MAX = 1.45; // a little slow → good
-export const PACE_GOOD_MAX = 2.3; // good → a little fast
-export const PACE_LITTLE_FAST_MAX = 2.8; // a little fast → fast
+export const PACE_SLOW_MAX = 1.3; // slow → a little slow
+export const PACE_LITTLE_SLOW_MAX = 1.7; // a little slow → good
+export const PACE_GOOD_MAX = 2.5; // good → a little fast
+export const PACE_LITTLE_FAST_MAX = 3; // a little fast → fast

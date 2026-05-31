@@ -5,7 +5,7 @@ import type { AggregateInput, ChannelSummary, Transcript } from '@quack/shared';
 import { SCHEMA_VERSION } from '@quack/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { runAggregate } from './aggregate/runAggregate.js';
-import { transcribe } from './stt/transcribe.js';
+import { transcribeWithFillers } from './stt/transcribe.js';
 import { getFirestore } from './google/clients.js';
 import { requireAuth, type AuthEnv } from './auth/requireAuth.js';
 
@@ -112,7 +112,7 @@ app.post('/transcribe', requireAuth, async (c) => {
   console.log(`[transcribe] ${body.byteLength} bytes, content-type=${contentType}`);
   if (body.byteLength === 0) return c.json({ error: 'empty audio body' }, 400);
   try {
-    const transcript: Transcript = await transcribe(body, contentType);
+    const transcript: Transcript = await transcribeWithFillers(body, contentType);
     return c.json(transcript);
   } catch (err) {
     // Full error (auth/recognizer/encoding) goes to the API terminal; message back to the client.

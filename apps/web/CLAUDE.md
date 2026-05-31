@@ -2,7 +2,7 @@
 
 React + Vite + TS SPA. Two-phase flow: **idle** (context form + start) → **live** (nudge
 centerpiece + peripheral cue strip) → **report** (real delivery metrics + real Gemini
-context-advice + real Stage-3 emphasis & tone cards). Recorded clip → `@quack/api` for STT on stop
+context-advice + real Stage-3 tone card). Recorded clip → `@quack/api` for STT on stop
 (chunked for long talks), then per-word stress + gap-fillers are computed and the aggregate report
 is fetched.
 
@@ -28,13 +28,13 @@ is fetched.
 | src/audio/processors/ | volume / pause / pace / pitch signal processors (consts in src/config.ts) | tuning or adding a live signal |
 | src/audio/NudgeEngine.ts | single calm nudge (hysteresis); pace/pitch bands from `@quack/shared` | tuning the live nudge |
 | src/audio/stress.ts | per-word acoustic stress (z-scored volume/pitch/duration, offset-corrected) → `word.stress` | tuning stress scoring |
-| src/audio/chunker.ts | decode → 16 kHz mono → pause-aligned WAV segments + stitch (long-form STT past ~60s cap) | changing chunking / long-form STT |
+| src/audio/chunker.ts | decode → 16 kHz mono → pause-aligned WAV segments + stitch (long-form STT past ~60s cap); `encodeClipToWav` re-encodes a whole short clip to WAV (server's Gemini filler pass rejects webm) | changing chunking / long-form STT |
 | src/audio/fillers.ts | transcript + acoustic gap fillers → single `audio.filler` channel | changing filler derivation |
 | src/audio/Recorder.ts | builds SessionRecord (+ optional context) from samples | changing how sessions are recorded |
-| src/audio/useAudioCapture.ts | React binding + STT-on-stop (chunk→stitch→stress→gap-fillers) + summarize + report fetch | wiring capture into UI |
-| src/context/ContextForm.tsx | paste material + audience/setting fields → SpeechContext | editing context capture |
+| src/audio/useAudioCapture.ts | React binding + STT-on-stop (WAV-encode→chunk→stitch→stress→gap-fillers) + summarize + report fetch; all clips upload as WAV | wiring capture into UI |
+| src/context/ContextForm.tsx | paste material + audience/setting fields → SpeechContext; optional `initialContext` prefills (remount via `key`) for "Reuse last request" | editing context capture |
 | src/dashboard/ | live screen: nudge centerpiece + reactive orb + segmented pace/pitch meters + cue strip | editing the live dashboard |
-| src/report/ | post-session report: real metrics + transcript (stress-weighted) + Gemini advice + real emphasis & tone cards (placeholder fallback when no material/old session) | editing the report |
+| src/report/ | post-session report: real metrics + 4-quarter pace timeline + transcript (stress-weighted) + Gemini advice + real tone card (placeholder fallback when no material/old session) | editing the report |
 | src/mock/placeholders.ts | typed `measured:false` stub data (shaped to `@quack/shared`) | stubbing an unbuilt signal |
 | src/theme/ | Dual-palette tokens: dark `:root` default + light `[data-theme=light]` override + orb utility; `ThemeToggle.tsx` (live light/dark switch, persisted) | restyling / swapping design system / theming |
 

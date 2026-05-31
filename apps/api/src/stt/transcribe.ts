@@ -13,6 +13,10 @@
 import type { Transcript, TranscriptWord } from '@quack/shared';
 import { getSpeechClient, loadGoogleConfig } from '../google/clients.js';
 import { FILLER_WORDS, FILLER_BOOSTS, STT_MODEL } from '../config.js';
+import { detectFillersFromAudio } from './geminiFillers.js';
+
+/** De-dup window: a Gemini filler within this of an STT-tagged filler is the same utterance. */
+const FILLER_DEDUP_MS = 300;
 
 /** Normalize a token for lexicon lookup: lowercase, strip surrounding punctuation. */
 function normalize(word: string): string {
@@ -74,6 +78,56 @@ export async function transcribe(audio: Uint8Array, _mimeType?: string): Promise
   // Fall back to the joined alternatives when word offsets are absent.
   const text = textParts.join(' ').trim() || words.map((w) => w.text).join(' ');
   return { words, text };
+}
+
+/**
+ * Transcribe a clip AND recover the fillers STT drops, in one transcript.
+ *
+ * use when: serving /api/transcribe — this is the route entry point (called per-segment on the
+ * chunked long path). Runs STT and the Gemini verbatim filler pass concurrently; STT failure still
+ * rejects the request (transcript is required), while a Gemini-filler failure degrades to STT-only.
+ * Recovered fillers merge into `words` (not `text`, so the clean transcript text is preserved) as
+ * `isDisfluency` words — they then ride the existing `audio.filler` channel.
+ */
+export async function transcribeWithFillers(
+  audio: Uint8Array,
+  mimeType?: string,
+): Promise<Transcript> {
+  const [transcript, gemFillers] = await Promise.all([
+    transcribe(audio, mimeType),
+    detectFillersFromAudio(audio, mimeType ?? 'application/octet-stream').catch((err) => {
+      console.error('[transcribe] gemini filler pass failed, STT-only:', err);
+      return [] as TranscriptWord[];
+    }),
+  ]);
+
+  const merged = mergeFillers(transcript.words, gemFillers);
+  if (merged.length !== transcript.words.length) {
+    console.log(`[transcribe] recovered ${merged.length - transcript.words.length} filler(s) via Gemini`);
+  }
+  return { words: merged, text: transcript.text };
+}
+
+/**
+ * Merge Gemini-recovered fillers into the STT word list. A Gemini filler is dropped when it
+ * overlaps (±FILLER_DEDUP_MS) an existing STT-tagged filler, or shares its normalized text within
+ * that window — so a filler STT already caught isn't double-counted. Result is sorted by start.
+ */
+function mergeFillers(sttWords: TranscriptWord[], gemFillers: TranscriptWord[]): TranscriptWord[] {
+  if (gemFillers.length === 0) return sttWords;
+  const sttFillers = sttWords.filter((w) => w.isDisfluency);
+  const fresh = gemFillers.filter((g) => {
+    return !sttFillers.some((s) => {
+      const overlaps =
+        g.tStartMs <= s.tEndMs + FILLER_DEDUP_MS && g.tEndMs >= s.tStartMs - FILLER_DEDUP_MS;
+      const sameText =
+        normalize(g.text) === normalize(s.text) &&
+        Math.abs(g.tStartMs - s.tStartMs) <= FILLER_DEDUP_MS;
+      return overlaps || sameText;
+    });
+  });
+  if (fresh.length === 0) return sttWords;
+  return [...sttWords, ...fresh].sort((a, b) => a.tStartMs - b.tStartMs);
 }
 
 /** Deterministic stand-in used when STT is disabled or unavailable. */

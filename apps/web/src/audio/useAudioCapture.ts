@@ -11,7 +11,7 @@ import {
 import { AudioCapture } from './AudioCapture.js';
 import { buildFillerChannel, detectGapFillers } from './fillers.js';
 import { annotateStress } from './stress.js';
-import { chunkAudio, pauseMidpointsMs, stitchSegments } from './chunker.js';
+import { chunkAudio, encodeClipToWav, pauseMidpointsMs, stitchSegments } from './chunker.js';
 import { authedFetch } from '../api/authedFetch.js';
 import { STT_MAX_SEGMENT_MS } from '../config.js';
 import type { LiveSnapshot } from './types.js';
@@ -92,7 +92,12 @@ async function fetchTranscript(audio: Blob): Promise<Transcript> {
  * to the whole-clip call (accepts the ~60s cap) rather than failing the report.
  */
 async function transcribeClip(audio: Blob, rec: SessionRecord, offsetMs: number): Promise<Transcript> {
-  if (rec.durationMs <= STT_MAX_SEGMENT_MS) return fetchTranscript(audio);
+  if (rec.durationMs <= STT_MAX_SEGMENT_MS) {
+    // Re-encode to WAV so the server's Gemini filler pass accepts it (Gemini rejects webm/opus);
+    // STT auto-decodes WAV fine. Decode failure falls back to the original blob (STT-only).
+    const wav = await encodeClipToWav(audio);
+    return fetchTranscript(wav ?? audio);
+  }
   const segments = await chunkAudio(audio, pauseMidpointsMs(rec), offsetMs, STT_MAX_SEGMENT_MS);
   if (!segments || segments.length <= 1) return fetchTranscript(audio);
   const parts = await Promise.all(

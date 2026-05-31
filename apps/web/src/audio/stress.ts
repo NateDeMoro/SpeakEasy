@@ -2,8 +2,8 @@
  * Per-word acoustic stress (Stage 3, Step 1).
  *
  * use when: after STT returns and the recorder↔clip offset is known — annotate each transcript
- * word with how vocally stressed it was (0..1) so the emphasis-vs-meaning analysis can compare
- * delivered stress against content importance. Mutates `record.transcript.words[].stress`.
+ * word with how vocally stressed it was (0..1) so the report can weight the transcript by delivered
+ * stress (more-stressed words read heavier). Mutates `record.transcript.words[].stress`.
  *
  * Stress is a weighted blend of three components, z-scored across the talk so it reads as
  * "relative to how this speaker spoke today" rather than absolute units:

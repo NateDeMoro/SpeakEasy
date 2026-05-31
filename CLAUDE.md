@@ -63,7 +63,8 @@ The Hono app is mounted at `/api` (`basePath`); the Vite dev proxy mirrors this.
 | apps/api/ | Cloud Run service under /api; STT + Gemini report + Firestore sessions (has CLAUDE.md) | building the backend |
 | docs/ProjectPlan.md | Product brief and staged plan (Stage 0–4) | recalling product direction |
 | docs/FrontEndDesign.md | Front-end design: two-phase live→report, stub-first (built in Stage 2) | building/restyling the frontend |
-| docs/BackendSlide.md | Pitch-slide spec: two decision engines (live nudges + Gemini tone/emphasis) | making the "how it works" slide |
+| docs/BackendSlide.md | Pitch-slide spec: two decision engines (live nudges + Gemini tone) | making the "how it works" slide |
+| docs/StackSlide.md | Pitch-slide spec: Google-product stack diagram (one service per tier) | making the architecture/stack slide |
 | docs/PrePlanning.md | Pre-hackathon notes | recalling early ideas |
 | design-md/ | Reference design systems; web uses Linear (near-black) tokens | styling/swapping the theme |
 | firebase.json / .firebaserc | Hosting + `/api/**`→Cloud Run rewrite + Firestore rules/indexes; default project | changing deploy/routing |

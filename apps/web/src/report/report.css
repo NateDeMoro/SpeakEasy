@@ -45,6 +45,12 @@
   color: var(--c-ink);
 }
 
+.recording-time__target {
+  font-family: var(--t-mono-family);
+  font-size: 13px;
+  color: var(--c-muted);
+}
+
 .recording-time__verdict {
   display: inline-flex;
   align-items: center;
@@ -236,8 +242,7 @@
   color: var(--c-body-strong);
 }
 
-/* Stage 3: emphasis vs. meaning. */
-.emphasis__list,
+/* Stage 3: tone–content mismatch. */
 .mismatch__list {
   margin: var(--s-3) 0 0;
   padding: 0;
@@ -247,58 +252,6 @@
   gap: var(--s-3);
 }
 
-.emphasis__item {
-  display: flex;
-  align-items: baseline;
-  gap: var(--s-2);
-  flex-wrap: wrap;
-}
-
-.emphasis__verdict {
-  font-family: var(--t-mono-family);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border: 1px solid currentColor;
-  border-radius: var(--radius-pill);
-  padding: 1px 8px;
-}
-
-.emphasis__verdict--under {
-  color: var(--c-meter-watch);
-}
-
-.emphasis__verdict--over {
-  color: var(--c-meter-flag);
-}
-
-.emphasis__word {
-  font-family: var(--t-display-family);
-  font-weight: var(--t-title-weight);
-  color: var(--c-ink);
-}
-
-/* The over-stressed word, highlighted inside its clause context. */
-.emphasis__focus {
-  color: var(--c-meter-flag);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.emphasis__scores {
-  font-family: var(--t-mono-family);
-  font-size: 12px;
-  color: var(--c-muted);
-}
-
-.emphasis__options {
-  flex-basis: 100%;
-  font-family: var(--t-mono-family);
-  font-size: 12px;
-  color: var(--c-muted);
-}
-
-/* Stage 3: tone–content mismatch. */
 .mismatch__item {
   display: flex;
   flex-direction: column;

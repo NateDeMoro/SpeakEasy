@@ -50,3 +50,15 @@ export async function fetchSession(id: string): Promise<StoredSession> {
   }
   return (await res.json()) as StoredSession;
 }
+
+/**
+ * The logged-in user's most recent session context, or null if none saved yet. The list is
+ * already ordered newest-first but omits context, so fetch the latest by id to get it.
+ * use when: prefilling the context form to reuse the last rehearsal's request.
+ */
+export async function fetchLatestContext(): Promise<SpeechContext | null> {
+  const [recent] = await fetchSessions();
+  if (!recent) return null;
+  const latest = await fetchSession(recent.sessionId);
+  return latest.context ?? null;
+}

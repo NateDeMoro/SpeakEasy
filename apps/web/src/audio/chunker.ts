@@ -97,6 +97,21 @@ function encodeWav(samples: Float32Array, sampleRate: number): Blob {
   return new Blob([view], { type: 'audio/wav' });
 }
 
+/**
+ * Decode a whole clip → one 16 kHz mono WAV blob. Returns null on decode failure (caller keeps the
+ * original blob). use when: short clips that skip chunking still need a Gemini-accepted container —
+ * Gemini rejects webm/opus, so the filler pass needs WAV (STT accepts it via autoDecodingConfig).
+ */
+export async function encodeClipToWav(blob: Blob): Promise<Blob | null> {
+  try {
+    const mono = await decodeToMono(blob);
+    return encodeWav(mono, TARGET_HZ);
+  } catch (err) {
+    console.warn('[chunker] WAV re-encode failed; sending original blob:', err);
+    return null;
+  }
+}
+
 /** Slice [startMs, endMs] of the mono PCM into a WAV segment. */
 function sliceToWav(mono: Float32Array, startMs: number, endMs: number): AudioSegment {
   const startIdx = Math.max(0, Math.floor((startMs / 1000) * TARGET_HZ));

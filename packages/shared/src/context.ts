@@ -3,9 +3,9 @@
  *
  * use when: building the Stage 1 context-capture UI, or assembling aggregate input.
  *
- * All fields are optional by design — the user provides whatever they want. Emphasis-vs-meaning
- * and context-aware advice are much stronger when `material` is supplied, so the UI should
- * actively encourage uploading the script/slides (it is not required, though).
+ * All fields are optional by design — the user provides whatever they want. Context-aware advice
+ * is much stronger when `material` is supplied, so the UI should actively encourage uploading the
+ * script/slides (it is not required, though).
  */
 
 /** A reference to uploaded speech material that Gemini can read natively (PDF, image, text). */

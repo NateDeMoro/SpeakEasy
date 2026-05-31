@@ -6,25 +6,27 @@
 ## Context
 
 Stages 0–2 ship live capture, the dashboard, batch STT, context capture, and the Stage-2
-context-aware Gemini report. Phase 3 adds the product's flagship differentiators to the
-after-the-fact report — the reason the product is distinct from Yoodli/Orai:
+context-aware Gemini report. Phase 3 deepens the after-the-fact report:
 
-1. **Emphasis-vs-meaning** — did the speaker vocally stress the words that carry the point
-   (importance informed by the uploaded script/slides)?
-2. **Tone-content mismatch** — content sentiment (Gemini) vs delivered prosody (e.g. an exciting
+1. **Tone-content mismatch** — content sentiment (Gemini) vs delivered prosody (e.g. an exciting
    result delivered flat).
+2. **Per-word acoustic stress** — score how vocally stressed each word was and weight the report
+   transcript so the words the speaker stressed read heavier.
 
 Plus two adjacent pieces the brief and `docs/Problems.md` tie to Stage 3:
 
 3. **Acoustic filler-gap detection** — flag voiced gaps STT left untagged (the durable fix for
-   the Stage 1 filler-miss), reusing the same audio↔transcript alignment built for emphasis.
-4. **Long-form STT** — emphasis/tone need full-talk word timestamps, past the current ~60s sync cap.
+   the Stage 1 filler-miss), reusing the same audio↔transcript alignment built for stress.
+4. **Long-form STT** — full-talk word timestamps, past the current ~60s sync cap.
 
-The two report cards already exist as labeled placeholders (`apps/web/src/report/Report.tsx`), and
-the shared contract already reserves the fields: `AggregateReport.emphasisVsMeaning`,
-`.toneContentMismatch` (`packages/shared/src/aggregate.ts`) and `TranscriptWord.stress`
-(`packages/shared/src/schema.ts`). Phase 3 fills them — all additive/optional, no
-`SCHEMA_VERSION` bump, no breaking change to `@quack/shared`.
+> Note: an earlier revision of this plan also shipped an "emphasis-vs-meaning" card (a code-computed
+> verdict comparing content importance to delivered stress). That feature was later removed; the
+> per-word `stress` signal it produced is retained to weight the report transcript.
+
+The tone card already exists as a labeled placeholder (`apps/web/src/report/Report.tsx`), and the
+shared contract reserves `AggregateReport.toneContentMismatch` (`packages/shared/src/aggregate.ts`)
+and `TranscriptWord.stress` (`packages/shared/src/schema.ts`). Phase 3 fills them — all
+additive/optional, no `SCHEMA_VERSION` bump, no breaking change to `@quack/shared`.
 
 ## Confirmed decisions
 
@@ -33,17 +35,8 @@ the shared contract already reserves the fields: `AggregateReport.emphasisVsMean
    into <60s WAV segments, recognize each via the existing `/api/transcribe`, stitch with time
    offsets. No new infra (chosen over batch+GCS / streaming).
 3. **Gemini → multi-call.** Keep the Stage 2 report call as-is; add one focused, concurrent call
-   each for emphasis and for tone. Each call degrades independently (a partial failure still
-   yields a report).
-4. **Emphasis verdict → computed in code, not by the LLM.** Gemini (low temp ~0.1) returns only
-   the important **phrases/spans** from the uploaded material with an `importance` 0..1 — it never
-   scores or echoes delivery. Code then matches each span to transcript word spans, reads the
-   browser-measured per-word `stress` as `delivered`, and sets the `verdict` (match/under/over) by
-   comparing importance to delivered. The LLM can't drift numbers it never receives, and span
-   extraction is a task LLMs do well and cheaply (small output, scales to long talks).
-   (Contingency if span→word matching is unreliable: tighten the normalized match + confidence
-   floor, or derive importance keywords deterministically.)
-5. **Recorder↔clip clock alignment → calibrated once per capture (Step 0).** STT word timestamps
+   for tone. Each call degrades independently (a partial failure still yields a report).
+4. **Recorder↔clip clock alignment → calibrated once per capture (Step 0).** STT word timestamps
    live on the **MediaRecorder clip** clock; the volume/pitch/pause channels live on the
    **Recorder** `performance.now()` clock. The origins differ (recording starts before the
    Recorder t0, plus encoder startup latency). A single measured offset is captured at capture
@@ -152,64 +145,48 @@ Catch the unstressed "um/uh" STT drops (Stage 1 known limitation, `docs/Problems
 
 ### Step 4 — Gemini multi-call (server)
 
-- **`apps/api/src/aggregate/runAggregate.ts`** — refactor the single call into three
+- **`apps/api/src/aggregate/runAggregate.ts`** — refactor the single call into two
   independently-degrading calls run concurrently, each wrapped in its own try/catch so a failure
   yields `undefined` (`Promise.allSettled`-style — do **not** use a bare `Promise.all` that would
   reject the whole report); merge into one `AggregateReport`:
   - **`report` (existing):** summary/advice/metrics/coverage, temp 0.4, `REPORT_SCHEMA` (unchanged).
-  - **`analyzeEmphasis(input)` (new):** input = `speechMaterial` + transcript text + `settings`
-    (no per-word numbers sent). Schema `{ important: { phrase: string, importance: number }[] }`;
-    temp ~0.1; prompt: extract the phrases/spans that carry the point and rate `importance` 0..1 —
-    do **not** judge delivery. **Then in code** (post-call): match each phrase to transcript word
-    spans (normalized substring match); assign that importance to the matched words; unmatched words
-    get a low baseline importance. Read `delivered = word.stress` from `input.transcript`
-    (annotated client-side in Step 1, rides along). Set the verdict per word:
-    `under` if `importance − delivered ≥ EMPHASIS_UNDER_DELTA` (important but flat),
-    `over` if `delivered − importance ≥ EMPHASIS_OVER_DELTA` (stressed but unimportant),
-    else `match`. Emit `EmphasisFinding[]` bounded to **notable** words (the `under` ∪ `over` set)
-    so the card isn't every word. If the transcript carries no `stress` (old session / stress
-    failed), omit the emphasis section → card falls back to placeholder.
   - **`analyzeTone(input)` (new):** input = transcript + `channelSummaries` prosody timelines
-    (pitch/volume/pace) + material; schema `{ toneContentMismatch: MismatchFinding[] }`; temp ~0.3.
-    These fields are subjective, so the LLM owns them directly.
-- **`apps/api/src/config.ts`** — add `GEMINI_EMPHASIS_INSTRUCTION`, `GEMINI_TONE_INSTRUCTION`,
-  `GEMINI_EMPHASIS_TEMPERATURE = 0.1`, `GEMINI_TONE_TEMPERATURE = 0.3`, and the code-side verdict
-  bands `EMPHASIS_UNDER_DELTA` / `EMPHASIS_OVER_DELTA`.
+    (pitch/volume/pace) + material; schema `{ toneContentMismatch: MismatchFinding[] }`; temp ~0.2.
+    These fields are subjective, so the LLM owns them directly. Only `strong`-graded mismatches are
+    surfaced, capped at `MAX_TONE_FINDINGS`.
+- **`apps/api/src/config.ts`** — add `GEMINI_TONE_INSTRUCTION`, `GEMINI_TONE_TEMPERATURE = 0.2`,
+  and `MAX_TONE_FINDINGS`.
 - **Reuse:** `getGeminiClient`/`loadGoogleConfig` (`google/clients.ts`); the JSON-mode +
   `responseSchema` + `Type` pattern from `REPORT_SCHEMA`; `findSummary`; the stub/degrade pattern.
 - **Persistence:** `/aggregate` already persists the report + transcript best-effort — the new
-  fields + `stress` ride along automatically (no series, 1 MiB cap respected).
-- **Latency/UX:** the pipeline now runs N chunk STT calls + 3 Gemini calls before the report
+  field + `stress` ride along automatically (no series, 1 MiB cap respected).
+- **Latency/UX:** the pipeline now runs N chunk STT calls + 2 Gemini calls before the report
   renders; the existing `transcribing` / `reportPending` states already cover the longer wait — no
   new UI needed.
-- **Verify:** mock (`GEMINI_MOCK=1`) → stub still non-empty; real ADC → emphasis spans match and
-  the verdict is code-computed against `stress`, tone parses to the contract; kill one call → other
-  sections still render; a session with no `stress` → emphasis omitted gracefully.
+- **Verify:** mock (`GEMINI_MOCK=1`) → stub still non-empty; real ADC → tone parses to the
+  contract; kill one call → other sections still render.
 
 ### Step 5 — Real report cards (browser)
 
-- **`apps/web/src/report/Report.tsx` (+ `report.css`)** — replace the two `PlaceholderCard`s:
-  - Emphasis card from `report.emphasisVsMeaning`: surface `under` (important but flat) and `over`
-    (stressed but unimportant) words with importance vs delivered.
+- **`apps/web/src/report/Report.tsx` (+ `report.css`)** — replace the tone `PlaceholderCard`:
   - Tone card from `report.toneContentMismatch`: list segments (contentSentiment vs deliveredTone +
     detail + `fmtClock(tStartMs)`).
-  - Optional demo touch: weight/opacity each transcript word by `w.stress` in the existing
-    transcript render.
-  - Keep the `measured:false` placeholder state (`EMPHASIS_PLACEHOLDER` / `MISMATCH_PLACEHOLDER`) for
-    the empty/old-session/no-material case. Style via theme/tokens.css only (no hex).
-- **Verify:** real report populates both cards; no material / stored pre-Stage-3 session → graceful
-  placeholder. History renders identically.
+  - Weight/opacity each transcript word by `w.stress` in the existing transcript render.
+  - Keep the `measured:false` placeholder state (`MISMATCH_PLACEHOLDER`) for the empty/old-session
+    case. Style via theme/tokens.css only (no hex).
+- **Verify:** real report populates the tone card; no real finding / stored pre-Stage-3 session →
+  graceful placeholder. History renders identically.
 
 ### Step 6 — Docs (same turn as the code, per CLAUDE.md)
 
 - **`apps/web/CLAUDE.md`** — new `audio/stress.ts`, `audio/chunker.ts`, extended `fillers.ts`;
   `AudioCapture.ts` clock-offset calibration; report cards real.
-- **`apps/api/CLAUDE.md`** — multi-call `runAggregate` (emphasis spans + code-computed verdict,
-  tone), new instructions/temps + verdict bands in `config.ts`.
+- **`apps/api/CLAUDE.md`** — multi-call `runAggregate` (report + tone), new instruction/temp in
+  `config.ts`.
 - **Root `CLAUDE.md`** Files table if structure shifts.
 - **`docs/Problems.md`** — log: recorder↔clip clock-offset calibration; chunk-seam / no-pause
   hard-cut handling; gap-filler false-positive tuning; WAV re-encode payload + Safari decode
-  fallback; span→word matching reliability for emphasis.
+  fallback.
 - **`packages/shared/CLAUDE.md`** — note Stage-3 fields now populated (no version bump).
 
 ---
@@ -224,17 +201,16 @@ Catch the unstressed "um/uh" STT drops (Stage 1 known limitation, `docs/Problems
 | `apps/web/src/audio/fillers.ts` (extend) | acoustic filler-gap detection merged into the single `audio.filler` channel |
 | `apps/web/src/audio/useAudioCapture.ts` | thread `offsetMs`; chunk+stitch STT, then `annotateStress`, then gap-fillers, before `fetchReport` |
 | `apps/web/src/config.ts` | stress weights + gap thresholds (voiced gate reuses `PACE_SPEECH_GATE_DBFS`) |
-| `apps/web/src/report/Report.tsx` + `report.css` | real emphasis + tone cards; optional stress highlight |
-| `apps/api/src/aggregate/runAggregate.ts` | multi-call (report + emphasis spans@0.1 + tone), concurrent, per-call degrade; **code-computed emphasis verdict** |
-| `apps/api/src/config.ts` | emphasis/tone system instructions + low-temp constants + emphasis verdict bands |
+| `apps/web/src/report/Report.tsx` + `report.css` | real tone card; stress-weighted transcript highlight |
+| `apps/api/src/aggregate/runAggregate.ts` | multi-call (report + tone@0.2), concurrent, per-call degrade |
+| `apps/api/src/config.ts` | tone system instruction + low-temp constants |
 | `apps/api/src/stt/transcribe.ts` | confirm WAV/per-segment path (likely unchanged) |
 | `packages/shared/*` | no change — Stage-3 fields + `stress` already exist; no `SCHEMA_VERSION` bump |
 
 **Reuse, don't redefine:** `getChannel` (`schema.ts`); `buildFillerChannel` (`fillers.ts`);
 `summarizeAll`/`findSummary` (`summaries.ts`/`aggregate.ts`); `getGeminiClient`/`loadGoogleConfig`
 (`google/clients.ts`); `REPORT_SCHEMA`/`Type` JSON-mode pattern (`runAggregate.ts`); `fmtClock`,
-`PlaceholderCard` (`Report.tsx`); `EMPHASIS_PLACEHOLDER`/`MISMATCH_PLACEHOLDER`
-(`mock/placeholders.ts`).
+`PlaceholderCard` (`Report.tsx`); `MISMATCH_PLACEHOLDER` (`mock/placeholders.ts`).
 
 ---
 
@@ -251,10 +227,10 @@ Catch the unstressed "um/uh" STT drops (Stage 1 known limitation, `docs/Problems
 6. **Aggregate offline:** `GEMINI_MOCK=1 FIRESTORE_MOCK=1 STT_MOCK=1 pnpm --filter @quack/api dev`
    → stub non-empty (ensure the mock transcript carries word timings so stress can compute).
 7. **Aggregate real:** ADC (`gcloud auth application-default login`, `CLOUDSDK_PYTHON=python3.13`,
-   `gemini-2.5-flash`) → emphasis spans match + verdict computed in code; tone parses to the
-   contract; partial-failure of one call still renders.
-8. **Frontend:** full idle→live→report — both cards populate from a real report; no-material/old
-   session falls back to placeholders; Firestore persists the new fields; History renders them.
+   `gemini-2.5-flash`) → tone parses to the contract; partial-failure of one call still renders.
+8. **Frontend:** full idle→live→report — the tone card populates from a real report; no real
+   finding / old session falls back to the placeholder; Firestore persists the new field; History
+   renders it. The transcript is stress-weighted.
 
 ---
 
@@ -275,10 +251,6 @@ Catch the unstressed "um/uh" STT drops (Stage 1 known limitation, `docs/Problems
   empty.
 - **Filler-gap false positives (breaths, dramatic pauses)** — conservative thresholds, require
   voiced energy + near-flat pitch, de-dup vs pause + STT fillers, low confidence.
-- **Emphasis** — the LLM never receives the measured numbers and never sets the verdict (code does),
-  so it can't drift them; residual risk is **span→word matching** (repeats/paraphrase between
-  material and delivery) — mitigate with normalized substring match + a confidence floor;
-  contingency = deterministic keyword importance.
-- **Multi-call cost/latency** — 3 Gemini calls + N parallel chunk STT calls; concurrent,
+- **Multi-call cost/latency** — 2 Gemini calls + N parallel chunk STT calls; concurrent,
   `allSettled`-style independent degrade so a partial failure still returns a report; the existing
   `transcribing`/`reportPending` states cover the longer pipeline.

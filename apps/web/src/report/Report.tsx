@@ -1,7 +1,6 @@
 import type {
   AggregateReport,
   ChannelSummary,
-  EmphasisFinding,
   MismatchFinding,
   Transcript,
 } from '@quack/shared';
@@ -9,7 +8,7 @@ import {
   PACE_WPM_SLOW_MAX,
   PACE_WPM_FAST_MIN,
 } from '@quack/shared';
-import { EMPHASIS_PLACEHOLDER, MISMATCH_PLACEHOLDER } from '../mock/placeholders.js';
+import { MISMATCH_PLACEHOLDER } from '../mock/placeholders.js';
 import { deliveryMetrics, VERDICT_COLOR, type Verdict } from './metrics.js';
 import { recordingTimeReadout } from './recordingTime.js';
 import './report.css';
@@ -96,8 +95,8 @@ export interface ReportProps {
  * Post-session report. Renders identically for a just-finished rehearsal and a stored one from
  * history (both supply summaries + transcript + report). Delivery-metric cards and the transcript
  * (with filler highlighting) are real (local summaries / Stage-1 STT); the context-aware advice
- * card is real (the Gemini report). Emphasis-vs-meaning and tone–content mismatch are
- * clearly-labeled Stage 3 placeholders.
+ * card is real (the Gemini report). Tone–content mismatch falls back to a clearly-labeled
+ * placeholder when no real finding is present.
  */
 export function Report({
   summaries,
@@ -109,7 +108,9 @@ export function Report({
   goalSeconds,
 }: ReportProps) {
   const pace = transcript ? paceBreakdown(transcript) : null;
-  const metrics = summaries ? deliveryMetrics(summaries, !!pace) : [];
+  // Suppress the coarse syllable-onset pace card while transcribing so it doesn't flash a
+  // throwaway value before the real per-quarter PaceTimeline (transcript-derived) is ready.
+  const metrics = summaries ? deliveryMetrics(summaries, !!pace || transcribing) : [];
   const coverage = report?.coverage;
   const fillerCount = transcript?.words.filter((w) => w.isDisfluency).length ?? 0;
   const recTime = recordingTimeReadout(durationMs, goalSeconds);
@@ -125,6 +126,9 @@ export function Report({
           >
             {recTime.display}
           </span>
+          {goalSeconds && goalSeconds > 0 && (
+            <span className="recording-time__target">Target {fmtClock(goalSeconds * 1000)}</span>
+          )}
           {recTime.verdict && recTime.label && (
             <span className="recording-time__verdict" style={{ color: VERDICT_COLOR[recTime.verdict] }}>
               <span
@@ -181,7 +185,7 @@ export function Report({
                     key={i}
                     className={w.isDisfluency ? 'filler-word' : undefined}
                     // Stage 3: weight each word by its measured acoustic stress so the more
-                    // emphasized words read heavier. No effect on old sessions (stress absent).
+                    // strongly stressed words read heavier. No effect on old sessions (stress absent).
                     style={
                       typeof w.stress === 'number'
                         ? { opacity: 0.55 + 0.45 * w.stress, fontWeight: w.stress > 0.66 ? 600 : 400 }
@@ -216,7 +220,7 @@ export function Report({
                     <span className="advice__title">{a.title}</span>
                     <span className="advice__detail">{a.detail}</span>
                     {a.evidence && a.evidence.length > 0 && (
-                      <span className="advice__evidence">{a.evidence.join(' · ')}</span>
+                      <span className="advice__evidence">{a.evidence.map(prettyEvidence).join(' · ')}</span>
                     )}
                   </li>
                 ))}
@@ -225,11 +229,11 @@ export function Report({
 
             {coverage && (
               <div className="coverage">
-                {coverage.pointsCovered.length > 0 && (
-                  <CoverageList title="Covered" tone="good" items={coverage.pointsCovered} />
-                )}
                 {coverage.pointsMissed.length > 0 && (
                   <CoverageList title="Missed" tone="flag" items={coverage.pointsMissed} />
+                )}
+                {coverage.pointsCovered.length > 0 && coverage.pointsMissed.length === 0 && (
+                  <p className="card__hint">All parts covered.</p>
                 )}
                 {coverage.deviations && coverage.deviations.length > 0 && (
                   <CoverageList title="Off-script" tone="watch" items={coverage.deviations} />
@@ -243,81 +247,10 @@ export function Report({
         )}
       </div>
 
-      {report?.emphasisVsMeaning ? (
-        <EmphasisCard findings={report.emphasisVsMeaning} />
-      ) : (
-        <EmphasisCard findings={EMPHASIS_PLACEHOLDER.sample} example />
-      )}
-
       {report?.toneContentMismatch ? (
         <ToneCard findings={report.toneContentMismatch} />
       ) : (
         <ToneCard findings={MISMATCH_PLACEHOLDER.sample} example />
-      )}
-    </div>
-  );
-}
-
-/** mm:ss for a finding, percent for a 0..1 score. */
-function pct(x: number): string {
-  return `${Math.round(x * 100)}%`;
-}
-
-/** A clause with the over-stressed word highlighted in place (first case-insensitive match). */
-function Clause({ text, focus }: { text: string; focus: string }) {
-  const idx = text.toLowerCase().indexOf(focus.toLowerCase());
-  if (idx < 0) return <>{text}</>;
-  return (
-    <>
-      {text.slice(0, idx)}
-      <span className="emphasis__focus">{text.slice(idx, idx + focus.length)}</span>
-      {text.slice(idx + focus.length)}
-    </>
-  );
-}
-
-/**
- * Emphasis vs. meaning: the notable words where vocal stress and content importance diverged —
- * `under` (important but flat) and `over` (stressed but unimportant). `example` renders the
- * illustrative placeholder (no material / pre-Stage-3 session) dimmed and tagged.
- */
-function EmphasisCard({ findings, example }: { findings: EmphasisFinding[]; example?: boolean }) {
-  return (
-    <div className={`card emphasis${example ? ' placeholder' : ''}`}>
-      <p className="card__label">
-        Emphasis vs. meaning
-        {example && <span className="placeholder__tag">example</span>}
-      </p>
-      {example && (
-        <p className="card__hint">Shown as an example — record a rehearsal to measure your own emphasis.</p>
-      )}
-      {!example && findings.length === 0 ? (
-        <p className="card__hint">Your vocal emphasis landed on the words that carry the point.</p>
-      ) : (
-        <ul className="emphasis__list">
-          {findings.map((f, i) => (
-            <li className="emphasis__item" key={i}>
-              <span className={`emphasis__verdict emphasis__verdict--${f.verdict}`}>
-                {f.verdict === 'under' ? 'under' : 'over'}
-              </span>
-              <span className="emphasis__word">
-                {f.verdict === 'over' && f.context ? (
-                  <Clause text={f.context} focus={f.word} />
-                ) : (
-                  f.word
-                )}
-              </span>
-              <span className="emphasis__scores">
-                meaning {pct(f.importance)} · delivered {pct(f.delivered)}
-              </span>
-              {f.options && f.options.length > 0 && (
-                <span className="emphasis__options">
-                  emphasize any of: {f.options.map((o) => o.word).join(' · ')}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
       )}
     </div>
   );
@@ -382,6 +315,23 @@ function PaceTimeline({ breakdown }: { breakdown: PaceBreakdown }) {
       </div>
     </div>
   );
+}
+
+/** Channel ids (`${modality}.${signal}`) the report cites as advice evidence → readable labels. */
+const EVIDENCE_LABELS: Record<string, string> = {
+  'audio.pace': 'Pace',
+  'audio.volume': 'Volume',
+  'audio.pitch': 'Pitch',
+  'audio.pause': 'Pauses',
+  'audio.filler': 'Fillers',
+};
+
+/** Replace any channel-id in an evidence string with its label ("audio.volume: 62 dBFS" →
+ * "Volume: 62 dBFS"); transcript quotes pass through untouched. */
+function prettyEvidence(e: string): string {
+  let out = e;
+  for (const [id, label] of Object.entries(EVIDENCE_LABELS)) out = out.split(id).join(label);
+  return out;
 }
 
 function CoverageList({ title, tone, items }: { title: string; tone: Verdict; items: string[] }) {

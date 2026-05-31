@@ -53,73 +53,22 @@ Return ONLY JSON matching the provided schema:
 - summary: 2-3 sentences on how well the delivery fits this audience and setting.
 - prioritizedAdvice: highest-leverage adjustments for this audience first; each detail explains why it matters for these listeners; evidence[] cites channel ids (e.g. "audio.pace") or short transcript quotes.
 - metrics: one readout per signal present; verdict good | watch | flag judged against the audience-appropriate target, not an absolute. Note in value when a reading is fine for this setting even if unusual. Do not invent metrics for absent channels.
-- coverage: pointsCovered (planned points actually delivered), pointsMissed (planned points skipped), deviations[] (notable off-script tangents), and runningLong (true if the talk clearly over/under-ran the material) vs. the planned material and the audience's needs.
+- coverage: pointsCovered (planned points actually delivered), pointsMissed (planned points skipped), deviations[] (substantive off-script additions — content the speaker said that was NOT in the planned material; never list filler words, disfluencies, or "um/uh/like/you know" here), and runningLong (true if the talk clearly over/under-ran the material) vs. the planned material and the audience's needs.
 
 If audience/setting is missing, assume a general professional audience and say so in the summary. Never fabricate quotes or numbers.`;
 
-// --- Stage 3 multi-call: emphasis + tone -----------------------------------------
-// runAggregate fires three independently-degrading Gemini calls (report + emphasis + tone). The
-// emphasis call is span-extraction only (low temp, deterministic): the verdict is computed in code
-// from the browser-measured per-word `stress`, so the model never sees or scores delivery numbers.
+// --- Stage 3 tone call -----------------------------------------------------------
+// runAggregate fires two independently-degrading Gemini calls (report + tone). Tone is subjective,
+// so the model owns its fields directly (the report keeps the deterministic floor).
 
-/** Low temp — emphasis is near-deterministic span extraction, not creative writing. */
-export const GEMINI_EMPHASIS_TEMPERATURE = 0.1;
 /** Tone/sentiment is subjective; kept low so only confident, clear mismatches surface. */
 export const GEMINI_TONE_TEMPERATURE = 0.2;
 /** Keep only the strongest tone mismatches the model grades — bigger issues, not subtle wobble. */
 export const MAX_TONE_FINDINGS = 2;
 
-/** Code-side emphasis verdict bands (importance vs delivered stress, both 0..1). */
-export const EMPHASIS_UNDER_DELTA = 0.45; // important but flat: importance − delivered ≥ this
-export const EMPHASIS_OVER_DELTA = 0.45; // stressed but unimportant: delivered − importance ≥ this
-/** Only flag under-emphasis on genuinely important phrases, so minor phrases don't generate noise. */
-export const EMPHASIS_UNDER_MIN_IMPORTANCE = 0.6;
-
-/**
- * A phrase is graded by its PEAK option word, so emphasis can land on any of its content words.
- * `under` fires once per phrase only when no option word cleared the bar; `over` is tightened to a
- * genuine stress spike (absolute floor) so a normal-stress unimportant word isn't flagged. Both
- * lists are capped so the card stays glanceable rather than flagging every word.
- */
-export const EMPHASIS_OVER_MIN_DELIVERED = 0.75; // over needs a real spike, not just > importance
-export const EMPHASIS_MAX_UNDER = 3;
-export const EMPHASIS_MAX_OVER = 2;
-/** Over findings show the over-stressed word inside its clause (split on transcript punctuation);
- *  if no punctuation bounds it, expansion stops after this many words on each side. */
-export const EMPHASIS_CLAUSE_MAX_WORDS = 6;
-
-/**
- * Low-information function words are never emphasis options (you don't "stress 'the'") and never
- * trigger an over-flag. Negations/quantifiers are deliberately kept — they can carry the emphasis.
- */
-export const EMPHASIS_STOPWORDS = new Set<string>([
-  'the', 'a', 'an',
-  'of', 'to', 'in', 'on', 'at', 'for', 'with', 'by', 'from', 'as', 'into', 'onto', 'than',
-  'and', 'or', 'but', 'nor', 'so', 'yet', 'if', 'then',
-  'is', 'are', 'was', 'were', 'be', 'been', 'being', 'am', 'do', 'does', 'did',
-  'has', 'have', 'had', "it's",
-  'i', 'you', 'he', 'she', 'we', 'they', 'it', 'this', 'that', 'these', 'those',
-  'my', 'your', 'his', 'her', 'our', 'their', 'its',
-]);
-
-/**
- * Emphasis call: extract the important phrases/spans from the DELIVERED TRANSCRIPT and rate
- * importance 0..1 (no uploaded script required). The model NEVER judges delivery — it receives no
- * per-word numbers; the match/under/over verdict is computed in code against the measured stress.
- * Keeps the LLM from drifting numbers it never receives and makes span extraction a small, cheap
- * output that scales to long talks. Sourcing phrases from the transcript also guarantees they align
- * back to spoken words (the prior span→word matching risk largely goes away).
- */
-export const GEMINI_EMPHASIS_INSTRUCTION = `You identify which phrases in a delivered talk carry the most meaning, so a separate system can check whether the speaker vocally stressed them.
-You receive the delivered transcript (and, if available, the speaker's planned material as optional extra context). Return ONLY JSON matching the schema: an "important" array of the phrases/spans that carry the point, each with an "importance" from 0 to 1 (1 = a key term, number, or claim the audience must catch; lower = supporting wording).
-Rules:
-- Extract phrases that ACTUALLY APPEAR in the delivered transcript, so they can be aligned to spoken words. Prefer short spans (1-4 words): key terms, names, numbers, claims, contrasts.
-- Judge importance from the MEANING of what was said. Do NOT consider, score, or mention how the words were delivered (pace, volume, pitch, stress) — you receive no delivery data and must not infer any.
-- Do not invent phrases that are absent from the transcript. Return at most ~25 phrases, highest-importance first.`;
-
 /**
  * Tone call: detect tone–content mismatches (content sentiment vs delivered prosody). Subjective,
- * so the model owns these fields directly (unlike emphasis). Receives prosody timelines + material.
+ * so the model owns these fields directly. Receives prosody timelines + material.
  */
 export const GEMINI_TONE_INSTRUCTION = `You are a delivery coach detecting tone-content mismatches: places where the emotional content of WHAT was said does not match HOW it was delivered (the prosody).
 You receive the transcript, prosody timelines (pitch/volume/pace — stats plus coarse time buckets), and the planned material. Return ONLY JSON matching the schema: a "toneContentMismatch" array.
@@ -130,3 +79,25 @@ For each mismatch, emit { tStartMs, tEndMs, contentSentiment, deliveredTone, det
 - detail: one concrete sentence naming the gap (e.g. "The strongest result was delivered in a monotone.").
 - severity: "strong" only when the contradiction is unmistakable and would clearly undercut the message (e.g. a deliberately wrong tone); otherwise "moderate".
 Use the timeline timestamps (ms) to place each window. If delivery broadly matched content, return an empty array. Never fabricate.`;
+
+// --- Gemini verbatim filler recovery (stt/geminiFillers.ts) ---------------------
+// STT (`latest_long`) normalizes away disfluencies, so most "um/uh"s are never transcribed (the
+// Stage-1 risk; see docs/Problems.md). A parallel Gemini audio pass transcribes verbatim and
+// returns ONLY the fillers it dropped; they merge into the transcript as `isDisfluency` words and
+// ride the existing `audio.filler` channel. Deterministic (temp 0): this is recovery, not writing.
+
+/** Zero temp — verbatim filler recovery is transcription, not generation. */
+export const GEMINI_FILLER_TEMPERATURE = 0;
+
+/**
+ * System instruction for the Gemini verbatim filler pass. The model receives one audio clip and
+ * returns only the fillers actually spoken, each with clip-relative ms timing. Strictly recovery:
+ * no content words, no invention — kept tight to avoid false positives that would inflate the count.
+ */
+export const GEMINI_FILLER_INSTRUCTION = `You transcribe speech VERBATIM to recover filler words that automatic speech recognition silently drops. You receive one short audio clip.
+Return ONLY the fillers actually spoken: non-lexical fillers (um, uh, er, erm, ah, hmm, mm) and the verbal-crutch use of "like" / "you know", plus audible false starts and immediate word repetitions.
+Rules:
+- Do NOT return ordinary content words. Do NOT invent fillers that were not clearly spoken.
+- For each filler give its start and end time in milliseconds from the start of the clip.
+- If there are no fillers, return an empty array.
+- Output ONLY JSON matching the provided schema.`;

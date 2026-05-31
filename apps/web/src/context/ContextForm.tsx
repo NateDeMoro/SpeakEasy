@@ -25,6 +25,29 @@ function parseGoalSeconds(text: string): number | undefined {
   return Number(m[1]) * 60 + Number(m[2]);
 }
 
+/** Format whole seconds back to "m:ss" for the target-length input (inverse of parseGoalSeconds). */
+function formatGoalSeconds(total: number): string {
+  const s = Math.max(0, Math.round(total));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** Map a stored SpeechContext back to the form's field state (inverse of buildContext). */
+function decomposeContext(ctx?: SpeechContext): {
+  kind: MaterialKind;
+  materialText: string;
+  fields: ContextFields;
+  goalText: string;
+} {
+  const ref = ctx?.material?.refs?.[0];
+  const { goalSeconds, ...fields } = ctx?.settings ?? {};
+  return {
+    kind: ref?.kind ?? 'script',
+    materialText: ctx?.material?.combinedText ?? ref?.text ?? '',
+    fields,
+    goalText: goalSeconds !== undefined ? formatGoalSeconds(goalSeconds) : '',
+  };
+}
+
 /** Assemble a SpeechContext, dropping empty material/fields so absence stays meaningful. */
 function buildContext(
   kind: MaterialKind,
@@ -51,17 +74,25 @@ function buildContext(
 
 /**
  * Stage 1 context capture: paste the speech material plus open-ended audience/setting fields. All
- * optional, but pasting the script/slides is actively encouraged — emphasis-vs-meaning and the
- * context-aware report (Stages 2–3) are much stronger with it. `onChange` emits the assembled
- * SpeechContext so the parent can attach it to the session record at stop.
+ * optional, but pasting the script/slides is actively encouraged — the context-aware report
+ * (Stage 2) is much stronger with it. `onChange` emits the assembled SpeechContext so the parent
+ * can attach it to the session record at stop.
  *
  * use when: rendering the rehearsal setup form. Paste only this stage; file types arrive in Stage 2.
+ * Pass `initialContext` (and remount via a changing `key`) to prefill from a prior rehearsal.
  */
-export function ContextForm({ onChange }: { onChange: (ctx: SpeechContext) => void }) {
-  const [kind, setKind] = useState<MaterialKind>('script');
-  const [materialText, setMaterialText] = useState('');
-  const [fields, setFields] = useState<ContextFields>({});
-  const [goalText, setGoalText] = useState('');
+export function ContextForm({
+  onChange,
+  initialContext,
+}: {
+  onChange: (ctx: SpeechContext) => void;
+  initialContext?: SpeechContext;
+}) {
+  const seed = decomposeContext(initialContext);
+  const [kind, setKind] = useState<MaterialKind>(seed.kind);
+  const [materialText, setMaterialText] = useState(seed.materialText);
+  const [fields, setFields] = useState<ContextFields>(seed.fields);
+  const [goalText, setGoalText] = useState(seed.goalText);
 
   const emit = (k: MaterialKind, text: string, f: ContextFields, goal: string) =>
     onChange(buildContext(k, text, f, goal));

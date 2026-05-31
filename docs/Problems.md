@@ -32,6 +32,13 @@ but does not eliminate them — raising boosts trades misses for false positives
 the speech gate, near-flat pitch, ~200–600ms) that STT left with no transcribed word as candidate
 fillers. Belongs in Stage 3 because it needs the audio↔transcript alignment machinery built there.
 
+**Primary fix (2026-05-30):** the gap detector still missed deliberate umms (too conservative; can't
+catch STT *substitutions*). Added a parallel Gemini verbatim pass over the same audio bytes
+(`apps/api/src/stt/geminiFillers.ts`), run in `transcribeWithFillers` alongside STT and merged into
+the transcript as `isDisfluency` words (dedup ±300ms). Gemini rejects `audio/webm`, so the web
+client now re-encodes every clip to WAV before upload (`encodeClipToWav` in `chunker.ts`). Degrades
+to STT-only when Gemini is unavailable (`GEMINI_MOCK=1` / no ADC).
+
 ## Pace verdict bands disagree across consumers (decision: preserve, don't collapse)
 **Stage 2, config consolidation (shared + web).** The nudge fires "fast" at 2.2 syll/s while the
 dashboard meter only colors "fast" past its 1.95/2.4 presentation buckets — so the meter shifts
@@ -162,16 +169,9 @@ loudness knob) AND near-flat pitch, and de-dup vs committed `audio.pause` events
 Gap fillers carry `payload.source='gap'` and `c<1`, merged into the **one** `audio.filler` channel.
 Tune `GAP_*` in `apps/web/src/config.ts` from real recordings.
 
-## Emphasis: LLM extracts spans only; verdict computed in code (span→word matching is the risk)
-**Stage 3, aggregate (apps/api). 2026-05-30.** To stop the LLM drifting delivery numbers, Gemini
-(temp 0.1) returns only the important phrases + `importance` — never the measured stress.
-`computeEmphasisVerdicts` aligns each phrase to transcript word spans (normalized contiguous token
-match), assigns importance (unmatched → low baseline), reads `word.stress` as delivered, and sets
-match/under/over by `EMPHASIS_*_DELTA`. Emphasis is omitted (card → placeholder) when there is no
-transcript or it carries no `stress`.
-
-**Update (2026-05-31): importance now comes from the delivered transcript, not an uploaded script**,
-so the feature works with no material (material is optional extra context). This also largely
-removes the prior span→word matching risk — phrases are sourced from the transcript, so they align
-back to spoken words by construction (residual risk only from in-transcript repeats). Contingency if
-needed = tighten the match / a confidence floor.
+## Emphasis-vs-meaning feature removed
+**Stage 3, aggregate + report. 2026-05-30.** The "emphasis-vs-meaning" feature (a third Gemini call
+extracting important phrases, with an under/over verdict computed in code against per-word `stress`)
+was removed across the backend, shared contract, frontend card, and docs. The per-word acoustic
+`stress` signal it produced is retained — it now only weights the report transcript (stressed words
+read heavier). Tone-content mismatch is unaffected.

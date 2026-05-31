@@ -79,7 +79,7 @@ as a named fallback (`stubReport(input)`), mirroring the STT_MOCK degrade patter
    and settings.
 4. **JSON mode** (`responseMimeType: 'application/json'` + `responseSchema`) matching the Stage-2
    subset of `AggregateReport` only — do **not** schema the Stage 3/4 fields
-   (emphasis/tone/congruence). Parse `response.text`, attach `schemaVersion: SCHEMA_VERSION`.
+   (tone/congruence). Parse `response.text`, attach `schemaVersion: SCHEMA_VERSION`.
 5. **Floors so a bad LLM response never yields an empty report:** keep computing the deterministic
    volume/pause `metrics` via `findSummary` as a baseline; wrap the parse in try/catch →
    fall back to `stubReport(input)` on malformed output, and log.
@@ -114,8 +114,8 @@ as a named fallback (`stubReport(input)`), mirroring the STT_MOCK degrade patter
    `transcribing` interim with a loading state); "New rehearsal" resets to idle.
 5. **Report shell** `apps/web/src/report/Report.tsx` + css (new) — real delivery-metric cards from
    `summaries`; **context-aware advice card is REAL** (reads the Gemini report's `coverage` +
-   `prioritizedAdvice`); emphasis-vs-meaning and tone-content mismatch stay placeholder cards
-   (Stage 3). Optional thin "compare to prior" strip from `GET /sessions`.
+   `prioritizedAdvice`); tone-content mismatch stays a placeholder card (Stage 3). Optional thin
+   "compare to prior" strip from `GET /sessions`.
 - **Report fetch wiring:** in `apps/web/src/audio/useAudioCapture.ts` add `fetchReport()` that
   builds `AggregateInput` from `summarizeAll(record.channels)`, `record.transcript`,
   `record.context?.material`, `record.context?.settings` and POSTs `/api/aggregate`. Trigger it on
@@ -157,7 +157,7 @@ the template for the two new clients.
    (needs `gemini-2.0-flash` enabled in `us-central1`, ADC has `aiplatform.user`).
 4. **Firestore:** unset `FIRESTORE_MOCK`, run a session → `sessions/{id}` written; GET routes return it.
 5. **Frontend:** full `idle→live→report` flow; report shows real metrics + real context advice +
-   labeled placeholders for emphasis/tone.
+   a labeled placeholder for tone.
 
 ## Docs to update (same turn as the code, per CLAUDE.md rules)
 - `apps/api/CLAUDE.md` — new `config.ts`, Gemini+Firestore clients, `/sessions` endpoints,

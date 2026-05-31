@@ -8,7 +8,7 @@
  * placeholder for the real value when the backend lands — the component shape doesn't change.
  */
 
-import type { EmphasisFinding, MismatchFinding } from '@quack/shared';
+import type { MismatchFinding } from '@quack/shared';
 
 /** A value the UI shows as "not measured yet" until its backend lands. */
 export interface Placeholder<T> {
@@ -24,32 +24,6 @@ export interface Placeholder<T> {
 export const FILLER_CUE_PLACEHOLDER: Placeholder<{ note: string }> = {
   measured: false,
   sample: { note: 'live filler detection needs streaming STT' },
-};
-
-/** Stage 3 differentiator: did vocal stress land on the words that carry the point. */
-export const EMPHASIS_PLACEHOLDER: Placeholder<EmphasisFinding[]> = {
-  measured: false,
-  sample: [
-    {
-      word: 'the breakthrough result',
-      tStartMs: 12400,
-      importance: 0.9,
-      delivered: 0.3,
-      verdict: 'under',
-      options: [
-        { word: 'breakthrough', stress: 0.3, stressed: false },
-        { word: 'result', stress: 0.26, stressed: false },
-      ],
-    },
-    {
-      word: 'obviously',
-      tStartMs: 18800,
-      importance: 0.2,
-      delivered: 0.8,
-      verdict: 'over',
-      context: 'which was obviously the easy part',
-    },
-  ],
 };
 
 /** Stage 3 differentiator: content sentiment vs. delivered prosody. */

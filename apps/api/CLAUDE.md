@@ -17,9 +17,10 @@ best-effort persists the session; `/api/sessions` lists/retrieves prior rehearsa
 |------|-------------|--------------|
 | src/server.ts | Hono server (/api basePath): /health (public), /aggregate (+persist), /sessions, /sessions/:id, /transcribe (all `requireAuth`); CORS allowlist | adding routes |
 | src/auth/requireAuth.ts | Hono middleware: verify `Authorization: Bearer <idToken>` → `c.get('uid')`; `AUTH_MOCK` bypass | gating a route on a user |
-| src/config.ts | STT lexicon/boosts/`STT_MODEL` + report/emphasis/tone system instructions, low-temp constants, and code-side emphasis verdict bands | tuning STT or the Gemini prompts |
-| src/stt/transcribe.ts | batch STT v2: audio → Transcript, filler-lexicon disfluency tags; `autoDecodingConfig` handles both webm/opus and the chunker's WAV segments | tuning transcription |
-| src/aggregate/runAggregate.ts | AggregateFn impl: 3 concurrent independently-degrading Gemini calls (report + emphasis spans@0.1 + tone@0.3); emphasis verdict computed IN CODE from per-word `stress` | building the report |
+| src/config.ts | STT lexicon/boosts/`STT_MODEL` + report/tone/filler system instructions and low-temp constants | tuning STT or the Gemini prompts |
+| src/stt/transcribe.ts | batch STT v2: audio → Transcript, filler-lexicon disfluency tags; `transcribeWithFillers` (the route entry) runs STT + the Gemini filler pass concurrently and merges recovered fillers into `words` (dedup ±300ms); `autoDecodingConfig` handles webm/opus + the chunker's WAV | tuning transcription |
+| src/stt/geminiFillers.ts | Gemini verbatim audio pass (`inlineData`, temp 0) recovering the fillers STT drops → `isDisfluency` words; null client → `[]` (degrades to STT-only). Gemini rejects webm, so the client uploads WAV | recovering dropped fillers |
+| src/aggregate/runAggregate.ts | AggregateFn impl: 2 concurrent independently-degrading Gemini calls (report + tone@0.2); transcript-derived WPM pace block injected into the report prompt | building the report |
 | src/google/clients.ts | Speech + Gemini (Vertex) + Firestore clients (ADC, env-gated mocks) | wiring Google SDKs |
 | Dockerfile | Cloud Run container (build from repo root) | deploying |
 
@@ -45,21 +46,15 @@ best-effort persists the session; `/api/sessions` lists/retrieves prior rehearsa
 - Sync `recognize` caps inline audio at ~60s — fine for short clips; full-length needs streaming.
 
 ## Report & persistence notes
-- `runAggregate` fires 3 concurrent Gemini calls, each in its own try/catch (allSettled-style, not a
-  bare `Promise.all`): the core **report** (Stage-2 subset, temp 0.4), **emphasis** (extract important
-  phrases from the transcript, temp 0.1), and **tone** (temp 0.3). A failed call degrades to
-  `undefined` (its card falls back to a placeholder); no Gemini client → `stubReport`. `floorMetrics`
-  keeps the report non-empty.
-- **Emphasis verdict is computed in code**, never by the LLM: Gemini returns only phrases +
-  `importance` drawn from the **delivered transcript** (no uploaded script required; material is
-  optional extra context); `computeEmphasisVerdicts` aligns them to transcript word spans and grades
-  **per phrase, not per word** — a phrase passes if its PEAK content (option) word clears
-  `importance − EMPHASIS_UNDER_DELTA`, so emphasis may land on any of its words; only phrases where
-  no option landed emit one `under` finding (with the candidate `options[]`). `over` stays per-word
-  but tightened (`EMPHASIS_OVER_MIN_DELIVERED` floor); both lists capped (`EMPHASIS_MAX_UNDER/OVER`),
-  stopwords excluded. Omitted only when there is no transcript or no `stress` (old session).
-- Each call has its own `responseSchema` (report / `{important[]}` / `{toneContentMismatch[]}`);
-  `schemaVersion` is attached server-side, never by the model.
+- `runAggregate` fires 2 concurrent Gemini calls, each in its own try/catch (allSettled-style, not a
+  bare `Promise.all`): the core **report** (Stage-2 subset, temp 0.4) and **tone** (temp 0.2). A
+  failed call degrades to `undefined` (its card falls back to a placeholder); no Gemini client →
+  `stubReport`. `floorMetrics` keeps the report non-empty.
+- **Tone** (tone–content mismatch) is subjective, so the model owns its fields directly: it receives
+  the transcript, prosody timelines, and material, and only `strong`-graded mismatches are surfaced,
+  capped at `MAX_TONE_FINDINGS`. Omitted (card → placeholder) when there is no transcript.
+- Each call has its own `responseSchema` (report / `{toneContentMismatch[]}`); `schemaVersion` is
+  attached server-side, never by the model.
 - `/aggregate` persists `sessions/{id}` best-effort: summaries + transcript + report + context,
   **not** raw `series` (1 MiB doc limit). Failure logs but still returns the report.
 

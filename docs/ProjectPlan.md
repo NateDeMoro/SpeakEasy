@@ -2,7 +2,7 @@
 ### Handoff document for next-stage planning (revision 2)
 
 ## One-line summary
-A browser-based practice tool for ordinary people prepping a specific talk in the short term. It listens to a rehearsal, gives light real-time audio feedback, and produces a detailed after-the-fact report tuned to the speaker's actual speech material and audience, including whether they emphasized the words that matter and whether their tone matched their message.
+A browser-based practice tool for ordinary people prepping a specific talk in the short term. It listens to a rehearsal, gives light real-time audio feedback, and produces a detailed after-the-fact report tuned to the speaker's actual speech material and audience, including whether their tone matched their message.
 
 ## Decisions locked in this revision
 - Platform: browser web app, laptop-first, with smartphone support as a later possibility.
@@ -18,18 +18,17 @@ This task orientation is the positioning wedge. Existing tools are framed as ong
 ## Competitive context and where differentiation now sits
 This is a crowded, well-funded category. Yoodli (Google-backed, Toastmasters-integrated, $13.7M raised) and Orai already cover the standard set: filler words, pace, pitch and tone, clarity, eye contact, body language, real-time prompts, progress tracking, and AI roleplay. Simulated audiences and hostile-Q&A roleplay exist elsewhere too. The standard metrics are table stakes.
 
-With the facial channel deferred to Stage 4, the core MVP differentiation rests on three things:
+With the facial channel deferred to Stage 4, the core MVP differentiation rests on two things:
 
-1. Emphasis-versus-meaning. Checking whether the words the speaker vocally stressed are the words that actually carry the point. Audio plus content only, so it is fully intact in the audio-only build. This is the flagship novelty and is absent from the incumbents.
-2. Context-aware advice, now stronger. Because the user uploads the actual slideshow, script, or notes plus open-ended audience and setting details, the aggregate coaching can judge delivery against the real talk and room ("too much jargon for this audience," "you skipped your second main point," "too flat for a celebratory toast"). Incumbents mostly grade delivery in the abstract.
-3. Audio tone-content mismatch. Comparing what is being said (Gemini sentiment and intent) against how it is said (prosody), surfacing contradictions like an exciting result delivered flat.
+1. Context-aware advice. Because the user uploads the actual slideshow, script, or notes plus open-ended audience and setting details, the aggregate coaching can judge delivery against the real talk and room ("too much jargon for this audience," "you skipped your second main point," "too flat for a celebratory toast"). Incumbents mostly grade delivery in the abstract.
+2. Audio tone-content mismatch. Comparing what is being said (Gemini sentiment and intent) against how it is said (prosody), surfacing contradictions like an exciting result delivered flat.
 
-Honest note: an audio-only core sits closer to the most crowded sub-segment (Orai, Yoodli, Poised, Ummo, Speeko all do audio coaching, and the first two also offer the visual layer being deferred here). So in the MVP, emphasis-versus-meaning and the depth of the script-aware context advice carry most of the differentiation weight. The full face-inclusive congruence story and the computer-vision flex return as a Stage 4 upgrade.
+Honest note: an audio-only core sits closer to the most crowded sub-segment (Orai, Yoodli, Poised, Ummo, Speeko all do audio coaching, and the first two also offer the visual layer being deferred here). So in the MVP, the depth of the script-aware context advice and the audio tone-content mismatch carry most of the differentiation weight. The full face-inclusive congruence story and the computer-vision flex return as a Stage 4 upgrade.
 
 ## Feature inventory
 Real-time, general, audio-only in the MVP: volume and variation, speaking pace, pauses and dead air, pitch and pitch variation, filler words.
 
-Aggregate differentiators, post-talk: emphasis-versus-meaning, audio tone-content mismatch, and context-aware coaching that reads every metric through the uploaded speech material and the stated audience and setting.
+Aggregate differentiators, post-talk: audio tone-content mismatch and context-aware coaching that reads every metric through the uploaded speech material and the stated audience and setting.
 
 Context inputs: speech material (slideshow, script, or notes) plus open-ended audience and setting fields.
 
@@ -44,11 +43,11 @@ Fast path (real-time, on-device, cheap): Web Audio API for volume, pause, and pi
 
 Context ingestion: accept or parse the slideshow, script, or notes. Gemini reads PDFs, images, and text natively, so slides and notes need little custom parsing.
 
-Slow path (aggregate, post-talk, heavy): the buffered audio signal time-series, the full transcript, the parsed speech material, and the audience and setting fields go to Gemini, which returns context-aware advice, emphasis-versus-meaning (important words, informed by the script, aligned against the acoustically stressed words), and audio tone-content mismatch (content sentiment against prosody). Optional Firebase storage enables cross-rehearsal comparison.
+Slow path (aggregate, post-talk, heavy): the buffered audio signal time-series, the full transcript, the parsed speech material, and the audience and setting fields go to Gemini, which returns context-aware advice and audio tone-content mismatch (content sentiment against prosody). Optional Firebase storage enables cross-rehearsal comparison.
 
 Modality-agnostic interfaces (the future-proofing requirement): store the session record as per-channel time-series keyed by channel type; have the aggregate Gemini step accept an extensible set of channel summaries; build the congruence analysis to treat any visual channel as an optional added signal. This lets the Stage 4 video layer slot in as another channel rather than forcing a rewrite of the recording schema, the aggregate pipeline, or the report format.
 
-Feasibility: the real-time audio side is cheap and well-trodden, with STT the one dependency (it must be configured to preserve disfluencies, since most engines strip "um" by default). The aggregate side is easier post-hoc than it would be live, with no latency pressure. The single real engineering task is aligning word timestamps to acoustic stress for emphasis detection, which is moderate and tractable offline. Speech-material ingestion is easy because Gemini reads the formats directly. Suggested stack: Web Audio API, `pitchy`, Google Speech-to-Text, Gemini, Firebase, plus MediaPipe added at Stage 4.
+Feasibility: the real-time audio side is cheap and well-trodden, with STT the one dependency (it must be configured to preserve disfluencies, since most engines strip "um" by default). The aggregate side is easier post-hoc than it would be live, with no latency pressure — mostly prompt design over the transcript and material, tractable offline (aligning word timestamps to acoustic stress to weight the transcript is light signal work). Speech-material ingestion is easy because Gemini reads the formats directly. Suggested stack: Web Audio API, `pitchy`, Google Speech-to-Text, Gemini, Firebase, plus MediaPipe added at Stage 4.
 
 ## Staged implementation plan
 
@@ -65,20 +64,19 @@ On session end, send the transcript, the audio-metric summary, the parsed speech
 
 
 ### Stage 3: differentiator layer (audio)
-Add emphasis-versus-meaning (align the words Gemini judges important, informed by the uploaded script and slides, against the acoustically stressed words) and audio tone-content mismatch (content sentiment against prosody) to the aggregate report. This is the novel core and the reason the product is distinct. Feasibility is moderate; the word-stress alignment is the one piece of real engineering, made tractable by running post-hoc.
+Add audio tone-content mismatch (content sentiment against prosody) to the aggregate report, plus per-word acoustic stress that weights the report transcript so the words the speaker stressed read heavier. This deepens the differentiator layer. Feasibility is moderate; the word-stress alignment is the one piece of real signal engineering, made tractable by running post-hoc.
 
 ### Stage 4: add-ons and stretch (now including video)
 Optional, in rough priority order:
 - Video layer: webcam via MediaPipe Face Landmarker for gaze (notes versus audience) and facial expression. This restores eye-contact advice and completes the congruence story by adding the facial channel to tone-content mismatch. Because the Stage 1 schema and Stage 3 analysis were built modality-agnostic, video slots in as an added channel rather than a rewrite. This is the strongest demo add-on because it also restores the computer-vision flex.
 - Live freeze-recovery (script-rescue): natural now that the script or notes are already ingested. Align the live transcript to the loaded material, and surface the next line when a pause runs long.
-- Delivery tuner: show a target emphasis contour for a key line and let the user match it.
 - Gesture-speech synchrony via MediaPipe pose, once the video layer exists.
 - wireless earbud real time assistance.
 - Dynamic time increment lengths for chunking transcript (word count and analytics). Content-based chunking.
 - Multimodal context?
 
 ## Scope guidance and risks
-Keep the real-time side deliberately thin and spend build time on the aggregate analysis that differentiates the product. Main risks: the STT disfluency-preservation configuration, and the word-stress alignment in Stage 3. One quality note: emphasis-versus-meaning is much stronger when the user uploads the script or slides, since otherwise Gemini infers importance from the transcript alone, so the UI should actively encourage uploading the material. Avoid gold-plating the dashboard.
+Keep the real-time side deliberately thin and spend build time on the aggregate analysis that differentiates the product. Main risks: the STT disfluency-preservation configuration, and the word-stress alignment in Stage 3. One quality note: the context-aware report is much stronger when the user uploads the script or slides, since otherwise Gemini judges delivery against the transcript alone, so the UI should actively encourage uploading the material. Avoid gold-plating the dashboard.
 
 ## Out of scope (for now)
 - Smart-glasses hardware dependency for the MVP. The Meta Wearables toolkit exists but is in preview and partner-gated, so it cannot be relied on for a demo.
@@ -87,7 +85,7 @@ Keep the real-time side deliberately thin and spend build time on the aggregate 
 
 ## Open questions for next-stage planning
 - Smartphone support in the MVP, or deferred (laptop-first is recommended).
-- Which context fields are required versus optional, and whether to prompt the user to upload the script or slides, given emphasis-versus-meaning works much better with them.
+- Which context fields are required versus optional, and whether to prompt the user to upload the script or slides, given the context-aware report works much better with them.
 - Whether cross-rehearsal storage is in the MVP or deferred.
 - Which Stage 4 add-on to pre-commit for the hackathon demo (the video layer is the strongest candidate, since it restores both the eye-contact advice and the computer-vision flex).
 - STT vendor confirmation and the disfluency-preservation configuration.

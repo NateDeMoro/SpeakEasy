@@ -116,12 +116,9 @@ New: `src/report/Report.tsx` (+ report css). Consumes `record` + `summaries`.
    filler words highlighted (`isDisfluency`) and a filler count. Carried over from the Stage-1
    single-screen UI — it was dropped in the first two-phase pass and restored. Shows a
    "Transcribing…" state while STT runs, and "No speech detected" when the clip is empty.
-2. **Emphasis vs. meaning** — *placeholder card.* The flagship differentiator (Stage 3): did the
-   words the speaker vocally stressed match the words that carry the point. Needs Gemini + the
-   uploaded script. Placeholder now.
-3. **Tone–content mismatch** — *placeholder card.* Content sentiment (Gemini) vs. prosody —
+2. **Tone–content mismatch** — *placeholder card.* Content sentiment (Gemini) vs. prosody —
    e.g. an exciting result delivered flat. Placeholder now.
-4. **Context-aware advice** — *placeholder card.* Reads the `SpeechContext` (audience, setting,
+3. **Context-aware advice** — *placeholder card.* Reads the `SpeechContext` (audience, setting,
    script) to judge delivery against the real talk and room. Placeholder now.
 
 Each placeholder card is wired to local data where possible (e.g. context advice can already
@@ -188,7 +185,7 @@ All within `apps/web` (in scope per `CLAUDE.md`).
 | `src/App.tsx` | Phase state machine (`idle/live/report`); move `ContextForm` to idle; render `Report`; "New rehearsal" reset |
 | `src/mock/placeholders.ts` (new) | Typed stub data + `measured` flags, shaped to `@quack/shared` + `LiveSnapshot` |
 | `src/dashboard/Dashboard.tsx` + `dashboard.css` | Nudge centerpiece; peripheral cue strip (incl. filler placeholder); drop raw numbers; gate `WindowControl` behind dev flag |
-| `src/report/Report.tsx` + css (new) | Full report shell: real delivery-metric cards + placeholder differentiator cards (emphasis-vs-meaning, tone–content mismatch, context advice) |
+| `src/report/Report.tsx` + css (new) | Full report shell: real delivery-metric cards + placeholder differentiator cards (tone–content mismatch, context advice) |
 | `src/theme/tokens.css` + `index.html` | EB Garamond (300) display family; load fonts; add orb utility |
 | `apps/web/CLAUDE.md` | Document new `mock/` + `report/` dirs and the two-phase flow (update in the same turn as the code) |
 
@@ -218,7 +215,7 @@ All within `apps/web` (in scope per `CLAUDE.md`).
   element. **Locked** (was dropped in the first two-phase pass, then restored).
 - Build full ideal front end now with placeholder data; progressively swap for real values.
   **Locked** (stub-first).
-- Report: **full shell** — delivery metrics + transcript + context-advice are real; emphasis and
-  tone–mismatch are placeholder cards. **Locked.**
+- Report: **full shell** — delivery metrics + transcript + context-advice are real; tone–mismatch
+  is a placeholder card (real finding when present). **Locked.**
 - Theme: **Linear** (`design-md/linear.app`) — near-black canvas, lavender accent, system sans
   display. **Locked** (replaced ElevenLabs off-white + EB Garamond serif; we wanted a dark UI).

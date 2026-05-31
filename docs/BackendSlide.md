@@ -1,8 +1,8 @@
 # Slide: "How the Coach Decides"
 
 Content + layout spec for one pitch slide that shows judges *specifically* how the
-backend turns audio into coaching — how **tone** and **emphasis** are calculated, and
-how **real-time metrics** become decisions ("too fast", "monotone", etc.).
+backend turns audio into coaching — how **tone** is calculated, and how
+**real-time metrics** become decisions ("too fast", "monotone", etc.).
 
 Build the actual PowerPoint/Slides slide from this. Numbers are pulled from real code
 constants — see **Source of truth** to re-verify before presenting.
@@ -37,23 +37,22 @@ coaches without nagging.
 
 ---
 
-## Lane ② — Tone & Emphasis (Cloud Run + Gemini, on stop)
+## Lane ② — Tone (Cloud Run + Gemini, on stop)
 
 **Tagline:** Gemini judges *meaning*. The math judges *delivery*. The verdict is where
 they disagree.
 
 **Mini-flow (left → right):**
-`Stop → Cloud Speech-to-Text (word-level transcript) → per-word stress score → 3 parallel Gemini calls → report`
+`Stop → Cloud Speech-to-Text (word-level transcript) → per-word stress score → 2 parallel Gemini calls (report + tone) → report`
 
 **Callouts:**
 
 - **Per-word stress** = blend of how *loud*, how *high-pitched*, and how *stretched*
-  each word was vs. your baseline (z-scored → 0–1). Pure signal math.
-- **Emphasis:** Gemini ranks which phrases *matter* (importance 0–1) — **it never sees
-  the audio.** Code compares importance to measured stress → *important-but-flat =
-  under-emphasized*; *loud-but-trivial = over-emphasized*.
+  each word was vs. your baseline (z-scored → 0–1). Pure signal math — it weights the
+  transcript so the words you stressed read heavier.
 - **Tone:** Gemini compares the *sentiment* of your words against the pitch/volume/pace
-  timeline → flags mismatches (e.g., your best result delivered in a monotone).
+  timeline → flags mismatches (e.g., your best result delivered in a monotone). The
+  verdict comes from the *disagreement* between meaning and delivery.
 
 ---
 
@@ -74,10 +73,10 @@ they disagree.
 "Everything you see live is computed in the browser — four DSP processors at up to
 10 Hz, compared to target bands, surfaced as one nudge with hysteresis so it never
 nags. When you stop, the take goes to Cloud Run: Speech-to-Text gives word timings, we
-score each word's stress from loudness, pitch and duration, then three Gemini calls run
-in parallel. The clever part: Gemini only ever judges *meaning* — it never sees the
-audio — so the emphasis verdict comes from the *disagreement* between what mattered and
-what you actually stressed."
+score each word's stress from loudness, pitch and duration to weight the transcript,
+then two Gemini calls run in parallel. The clever part: Gemini only ever judges
+*meaning* — it never sees the audio — so the tone verdict comes from the *disagreement*
+between the sentiment of your words and how you actually delivered them."
 
 ---
 
@@ -93,6 +92,6 @@ Every number traces to a real constant:
 | Emit rates 4 Hz pace / 10 Hz pitch | `PACE_EMIT_INTERVAL_MS=250`, `PITCH_EMIT_INTERVAL_MS=100` | `apps/web/src/config.ts` |
 | Nudge rules (the threshold→message mapping) | — | `apps/web/src/audio/NudgeEngine.ts` |
 | Stress = z-scored loud+pitch+duration (weights 1.0 / 0.8 / 0.6) | `STRESS_W_LOUD/PITCH/DURATION` | `apps/web/src/config.ts`, `apps/web/src/audio/stress.ts` |
-| 3 Gemini calls; emphasis prompt forbids delivery data; under/over verdicts | `EMPHASIS_UNDER_DELTA=0.35`, `EMPHASIS_OVER_DELTA=0.35` | `apps/api/src/aggregate/runAggregate.ts`, `apps/api/src/config.ts` |
-| Gemini temps: emphasis 0.1, tone 0.3 | `GEMINI_EMPHASIS_TEMPERATURE`, `GEMINI_TONE_TEMPERATURE` | `apps/api/src/config.ts` |
+| 2 parallel Gemini calls (report + tone); only `strong` mismatches surfaced, capped | `MAX_TONE_FINDINGS=2` | `apps/api/src/aggregate/runAggregate.ts`, `apps/api/src/config.ts` |
+| Gemini tone temp 0.2 | `GEMINI_TONE_TEMPERATURE` | `apps/api/src/config.ts` |
 | STT = Cloud Speech-to-Text v2, word time offsets | `enableWordTimeOffsets` | `apps/api/src/stt/transcribe.ts` |

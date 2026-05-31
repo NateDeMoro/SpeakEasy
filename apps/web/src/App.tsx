@@ -6,7 +6,13 @@ import { Dashboard } from './dashboard/Dashboard.js';
 import { Report } from './report/Report.js';
 import { ContextForm } from './context/ContextForm.js';
 import { History } from './history/History.js';
-import { fetchSession, fetchSessions, type SessionListItem, type StoredSession } from './history/sessions.js';
+import {
+  fetchLatestContext,
+  fetchSession,
+  fetchSessions,
+  type SessionListItem,
+  type StoredSession,
+} from './history/sessions.js';
 import { useAuth } from './auth/AuthProvider.js';
 
 type Phase = 'idle' | 'live' | 'report' | 'history';
@@ -18,6 +24,13 @@ export function App() {
   const [phase, setPhase] = useState<Phase>('idle');
   const contextRef = useRef<SpeechContext>({});
 
+  // "Reuse last request": prefill the context form from the user's most recent stored session.
+  // `formKey` remounts ContextForm so the new `prefill` re-seeds its internal state.
+  const [prefill, setPrefill] = useState<SpeechContext | undefined>(undefined);
+  const [formKey, setFormKey] = useState(0);
+  const [reuseLoading, setReuseLoading] = useState(false);
+  const [reuseError, setReuseError] = useState<string | null>(null);
+
   // History (past rehearsals) + the stored session currently being viewed, if any.
   const [items, setItems] = useState<SessionListItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -26,8 +39,29 @@ export function App() {
 
   const onStart = () => {
     setViewed(null);
+    setPrefill(undefined);
+    setReuseError(null);
     start();
     setPhase('live');
+  };
+
+  const reuseLast = async () => {
+    setReuseError(null);
+    setReuseLoading(true);
+    try {
+      const ctx = await fetchLatestContext();
+      if (!ctx) {
+        setReuseError('No previous rehearsal to reuse');
+        return;
+      }
+      contextRef.current = ctx;
+      setPrefill(ctx);
+      setFormKey((k) => k + 1);
+    } catch (e: unknown) {
+      setReuseError(e instanceof Error ? e.message : 'Could not load last request');
+    } finally {
+      setReuseLoading(false);
+    }
   };
 
   const onStop = () => {
@@ -61,6 +95,8 @@ export function App() {
 
   const newRehearsal = () => {
     setViewed(null);
+    setPrefill(undefined);
+    setReuseError(null);
     setPhase('idle');
   };
 
@@ -112,14 +148,26 @@ export function App() {
             Set the scene, then rehearse. Volume, pace, pitch, and dead air are tracked live with a
             single calm nudge; the full context-aware report comes after you stop.
           </p>
-          <ContextForm onChange={(ctx) => (contextRef.current = ctx)} />
+          <ContextForm
+            key={formKey}
+            initialContext={prefill}
+            onChange={(ctx) => (contextRef.current = ctx)}
+          />
           <div className="controls">
             <button className="btn btn--primary" onClick={onStart}>
               Start rehearsal
             </button>
+            <button
+              className="btn btn--ghost"
+              onClick={() => void reuseLast()}
+              disabled={reuseLoading}
+            >
+              {reuseLoading ? 'Loading…' : 'Reuse last request'}
+            </button>
             <button className="btn btn--ghost" onClick={openHistory}>
               History
             </button>
+            {reuseError && <span className="error">{reuseError}</span>}
           </div>
         </>
       )}
