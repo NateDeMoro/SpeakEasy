@@ -36,7 +36,7 @@ is fetched.
 | src/dashboard/ | live screen: nudge centerpiece + reactive orb + segmented pace/pitch meters + cue strip | editing the live dashboard |
 | src/report/ | post-session report: real metrics + transcript (stress-weighted) + Gemini advice + real emphasis & tone cards (placeholder fallback when no material/old session) | editing the report |
 | src/mock/placeholders.ts | typed `measured:false` stub data (shaped to `@quack/shared`) | stubbing an unbuilt signal |
-| src/theme/ | Linear dark tokens (near-black + lavender accent + orb utility) | restyling / swapping design system |
+| src/theme/ | Dual-palette tokens: dark `:root` default + light `[data-theme=light]` override + orb utility; `ThemeToggle.tsx` (live light/dark switch, persisted) | restyling / swapping design system / theming |
 
 ## Conventions
 - Verdict bands (pace/pitch) come from `@quack/shared/config.ts` (single source for live + report);
@@ -47,3 +47,7 @@ is fetched.
 
 ## Theme swap
 Replace values in `theme/tokens.css` with another `design-md` system; keep variable names stable.
+Two palettes coexist: the dark `:root` block (default) and the additive `:root[data-theme='light']`
+override (Direction A "Soft paper"). `ThemeToggle` (mounted once in `main.tsx`) flips the `data-theme`
+attribute on `<html>` live; an inline script in `index.html` re-applies the saved choice before paint.
+Light-mode accents are deepened so white `--c-on-accent` text stays legible on fills.

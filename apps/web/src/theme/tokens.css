@@ -67,6 +67,46 @@
   --radius-sm: 8px;
 }
 
+/*
+ * LIGHT MODE — additive override layer (Direction A "Soft paper": warm off-white canvas, near-black
+ * ink, deepened accents). The dark palette above is the default and is left untouched; this block
+ * only applies when <html data-theme="light"> (the ThemeToggle sets it). Accents are deepened and
+ * desaturated on purpose: the dark values are tuned to glow on near-black and would read as neon on
+ * white. Each is dark enough that white --c-on-accent text stays legible on accent fills. The
+ * derived --c-meter-* roles reference these base accents via var(), so they update automatically.
+ */
+:root[data-theme='light'] {
+  --c-ink: #1a1a1a;
+  --c-body: #4a4a4a;
+  --c-body-strong: #2b2b2b;
+  --c-muted: #8a8a8a;
+  --c-muted-soft: #a8a8a8;
+
+  --c-canvas: #e7e8ea;
+  --c-canvas-soft: #e0e1e4;
+  --c-surface-card: #f2f3f5;
+  --c-surface-strong: #d9dadd;
+
+  --c-hairline: #d1d3d7;
+  --c-hairline-soft: #dcdee1;
+  --c-hairline-strong: #c2c4c9;
+
+  --c-primary: #5e6ad2;
+  --c-primary-active: #4f5bc0;
+  --c-on-primary: #ffffff;
+  /* light text now sits on top of the deepened accent fills (flipped from the dark theme) */
+  --c-on-accent: #ffffff;
+
+  --c-mint: #0d9269;
+  --c-peach: #c2410c;
+  --c-lavender: #5e6ad2;
+  --c-sky: #2563eb;
+  --c-rose: #e11d48;
+
+  --c-success: #0d9269;
+  --c-error: #dc2626;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -95,6 +135,11 @@
   filter: blur(44px);
   transition: background 700ms ease, opacity 700ms ease;
   pointer-events: none;
+}
+
+/* The orb glow is a dark-mode signature; on a light canvas it reads as a smudge, so soften it. */
+:root[data-theme='light'] .orb::before {
+  opacity: 0.18;
 }
 
 html,

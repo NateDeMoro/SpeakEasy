@@ -1,0 +1,28 @@
+/* Floating live light/dark switch. Bottom-right so it never overlaps the header (Sign out). */
+.theme-toggle {
+  position: fixed;
+  bottom: var(--s-5);
+  right: var(--s-5);
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background: var(--c-surface-card);
+  color: var(--c-body-strong);
+  border: 1px solid var(--c-hairline-strong);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.theme-toggle:hover {
+  color: var(--c-ink);
+  border-color: var(--c-primary);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}

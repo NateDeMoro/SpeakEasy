@@ -7,9 +7,15 @@ import type {
   EmphasisOption,
   MetricReadout,
   MismatchFinding,
+  Transcript,
   TranscriptWord,
 } from '@quack/shared';
-import { SCHEMA_VERSION, findSummary } from '@quack/shared';
+import {
+  SCHEMA_VERSION,
+  findSummary,
+  PACE_WPM_SLOW_MAX,
+  PACE_WPM_FAST_MIN,
+} from '@quack/shared';
 import { GoogleGenAI, Type } from '@google/genai';
 import { getGeminiClient, loadGoogleConfig } from '../google/clients.js';
 import {
@@ -258,6 +264,69 @@ function computeEmphasisVerdicts(
   return [...under.slice(0, EMPHASIS_MAX_UNDER), ...over.slice(0, EMPHASIS_MAX_OVER)];
 }
 
+type PaceVerdict = 'slow' | 'good' | 'fast';
+
+function wpmVerdict(wpm: number): PaceVerdict {
+  if (wpm < PACE_WPM_SLOW_MAX) return 'slow';
+  if (wpm > PACE_WPM_FAST_MIN) return 'fast';
+  return 'good';
+}
+
+interface PaceReading {
+  avgWpm: number;
+  verdict: PaceVerdict;
+  quarters: { wpm: number | null; verdict: PaceVerdict | null }[];
+}
+
+/**
+ * Mirror the report's PaceTimeline (apps/web Report.tsx `paceBreakdown`): real words/min from the
+ * transcript word timings, split into 4 equal-duration quarters, judged by the SHARED WPM bands.
+ * This is injected into the report prompt as the authoritative pace reading so Gemini's summary and
+ * advice agree with the on-screen pace card — rather than free-forming pace from the coarse
+ * syllable-onset channel (audio.pace), which can diverge badly. Returns null for clips too short to
+ * chunk (<8 content words), letting Gemini fall back to the syllable channel as before.
+ */
+function paceReading(transcript?: Transcript): PaceReading | null {
+  const words = transcript?.words.filter((w) => !w.isDisfluency && w.tEndMs > w.tStartMs) ?? [];
+  if (words.length < 8) return null;
+  const t0 = words[0]!.tStartMs;
+  const t1 = words[words.length - 1]!.tEndMs;
+  const span = t1 - t0;
+  if (span <= 0) return null;
+  const chunk = span / 4;
+
+  const quarters: PaceReading['quarters'] = [];
+  for (let i = 0; i < 4; i++) {
+    const absStart = t0 + i * chunk;
+    const absEnd = i === 3 ? t1 : t0 + (i + 1) * chunk;
+    const count = words.filter((w) => {
+      const mid = (w.tStartMs + w.tEndMs) / 2;
+      return mid >= absStart && (i === 3 ? mid <= absEnd : mid < absEnd);
+    }).length;
+    const minutes = (absEnd - absStart) / 60000;
+    const wpm = minutes > 0 && count > 0 ? count / minutes : null;
+    quarters.push({ wpm, verdict: wpm === null ? null : wpmVerdict(wpm) });
+  }
+  const avgWpm = words.length / (span / 60000);
+  return { avgWpm, verdict: wpmVerdict(avgWpm), quarters };
+}
+
+/** The authoritative WPM pace block for the report prompt, or null when the clip is too short. */
+function paceBlock(input: AggregateInput): string | null {
+  const pace = paceReading(input.transcript);
+  if (!pace) return null;
+  const quarters = pace.quarters
+    .map((q, i) => `Q${i + 1} ${q.wpm === null ? 'no speech' : `${Math.round(q.wpm)} wpm (${q.verdict})`}`)
+    .join(', ');
+  return (
+    `Authoritative pace reading — real words/min from the transcript; ` +
+    `bands: slow ≤${PACE_WPM_SLOW_MAX} wpm, fast >${PACE_WPM_FAST_MIN} wpm. ` +
+    `USE THIS for every pace judgment (summary, advice, pace metric); do NOT infer pace from the ` +
+    `syllable-rate channel (audio.pace), a coarse live proxy.\n` +
+    `Average: ${Math.round(pace.avgWpm)} wpm (${pace.verdict}). Per quarter: ${quarters}.`
+  );
+}
+
 /** Serialize the audience/setting fields into a prompt block, or null when none are set. */
 function settingsBlock(settings?: ContextFields): string | null {
   if (!settings) return null;
@@ -279,6 +348,8 @@ function buildPrompt(input: AggregateInput): string {
   parts.push(`Session duration: ${(input.session.durationMs / 1000).toFixed(1)}s`);
   parts.push(`Captured modalities: ${input.session.capturedModalities.join(', ') || 'none'}`);
   parts.push(`Channel summaries (stats + timeline + events):\n${JSON.stringify(input.channelSummaries)}`);
+  const pace = paceBlock(input);
+  if (pace) parts.push(pace);
   if (input.transcript?.text) parts.push(`Transcript:\n${input.transcript.text}`);
   if (input.speechMaterial?.combinedText) {
     parts.push(`Planned material:\n${input.speechMaterial.combinedText}`);

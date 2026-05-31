@@ -47,6 +47,8 @@ You receive per-channel delivery summaries (stats, a coarse timeline, and notabl
 
 First infer from the audience/setting what "good" looks like for THIS talk (energy, formality, density, length). Then evaluate against that target, not a generic ideal.
 
+PACE: when an "Authoritative pace reading" (real words/min) is provided, it is the single source of truth for pace — use its average, per-quarter verdicts, and bands for the summary, advice, and the pace metric. Do NOT judge pace from the syllable-rate channel (audio.pace), which is a coarse live proxy that can disagree. Calibrate whether that WPM is actually too fast/slow to the audience, but never contradict its direction (e.g. don't call the talk slow when the reading says fast).
+
 Return ONLY JSON matching the provided schema:
 - summary: 2-3 sentences on how well the delivery fits this audience and setting.
 - prioritizedAdvice: highest-leverage adjustments for this audience first; each detail explains why it matters for these listeners; evidence[] cites channel ids (e.g. "audio.pace") or short transcript quotes.

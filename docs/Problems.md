@@ -42,6 +42,21 @@ pitch bands) live in `@quack/shared/config.ts` and are consumed by the nudge + r
 dashboard keeps its finer presentation buckets web-local in `apps/web/src/config.ts` with a
 comment documenting the divergence. Don't silently unify them.
 
+## Context-aware summary contradicted the pace card (different signal + no bands)
+**Stage 3, report (apps/api + apps/web). 2026-05-30.** A rehearsal's pace timeline read "too fast"
+in 3/4 quarters while the Gemini summary said "too slow." Root cause: the two paths measure pace
+from **different signals** — the report's `PaceTimeline` uses real words/min from transcript word
+timings (shared bands `PACE_WPM_SLOW_MAX=110`/`PACE_WPM_FAST_MIN=160`), while the Gemini report only
+saw the `audio.pace` **syllable-onset proxy** (syll/s) inside the `channelSummaries` blob, with no
+bands at all, and free-formed a qualitative pace judgment. The onset proxy under-counts for some
+speakers, so it read slow when real WPM was fast.
+
+**Fix:** `runAggregate` now computes the same WPM breakdown the timeline uses (`paceReading`, mirrors
+web `paceBreakdown`, shared bands) and injects it into the report prompt as the "Authoritative pace
+reading"; `GEMINI_SYSTEM_INSTRUCTION` makes that the single source of truth for pace and forbids
+inferring pace from `audio.pace`. Timeline stays the source of truth; no web/shared changes. Falls
+back to the syllable channel only for clips too short to chunk (<8 content words).
+
 ## Firestore 1 MiB doc limit (decision: persist summaries, not raw series)
 **Stage 2, persistence (apps/api/server.ts).** A full session's per-frame `series` (volume at
 20 Hz, pitch at 10 Hz, …) can exceed Firestore's 1 MiB document cap on longer talks.
