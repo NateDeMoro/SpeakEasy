@@ -2,8 +2,9 @@
 
 React + Vite + TS SPA. Two-phase flow: **idle** (context form + start) → **live** (nudge
 centerpiece + peripheral cue strip) → **report** (real delivery metrics + real Gemini
-context-advice + Stage-3 placeholder cards). Recorded clip → `@quack/api` for STT on stop, then
-the aggregate report is fetched.
+context-advice + real Stage-3 emphasis & tone cards). Recorded clip → `@quack/api` for STT on stop
+(chunked for long talks), then per-word stress + gap-fillers are computed and the aggregate report
+is fetched.
 
 ## Edit rules
 - Frontend only. Do not put Google *data*/server keys here — the web app calls `@quack/api`
@@ -23,15 +24,17 @@ the aggregate report is fetched.
 | src/auth/AuthProvider.tsx | `onAuthStateChanged` context; `signIn`/`signOut`/`user`; `useAuth()` | wiring auth state |
 | src/api/authedFetch.ts | `fetch` wrapper that attaches `Authorization: Bearer <idToken>` | calling any `/api` route |
 | src/config.ts | all browser audio thresholds (processors/capture/nudge/dashboard); imports shared bands | tuning a live signal or the meters |
-| src/audio/AudioCapture.ts | getUserMedia + AudioContext + rAF loop + MediaRecorder + nudge | changing the capture pipeline |
+| src/audio/AudioCapture.ts | getUserMedia + AudioContext + rAF loop + MediaRecorder + nudge; calibrates recorder↔clip `offsetMs` (Stage 3 Step 0) | changing the capture pipeline |
 | src/audio/processors/ | volume / pause / pace / pitch signal processors (consts in src/config.ts) | tuning or adding a live signal |
 | src/audio/NudgeEngine.ts | single calm nudge (hysteresis); pace/pitch bands from `@quack/shared` | tuning the live nudge |
-| src/audio/fillers.ts | transcript → `audio.filler` channel | changing filler derivation |
+| src/audio/stress.ts | per-word acoustic stress (z-scored volume/pitch/duration, offset-corrected) → `word.stress` | tuning stress scoring |
+| src/audio/chunker.ts | decode → 16 kHz mono → pause-aligned WAV segments + stitch (long-form STT past ~60s cap) | changing chunking / long-form STT |
+| src/audio/fillers.ts | transcript + acoustic gap fillers → single `audio.filler` channel | changing filler derivation |
 | src/audio/Recorder.ts | builds SessionRecord (+ optional context) from samples | changing how sessions are recorded |
-| src/audio/useAudioCapture.ts | React binding + STT-on-stop + summarize + report fetch (`/api/aggregate`) | wiring capture into UI |
+| src/audio/useAudioCapture.ts | React binding + STT-on-stop (chunk→stitch→stress→gap-fillers) + summarize + report fetch | wiring capture into UI |
 | src/context/ContextForm.tsx | paste material + audience/setting fields → SpeechContext | editing context capture |
 | src/dashboard/ | live screen: nudge centerpiece + reactive orb + segmented pace/pitch meters + cue strip | editing the live dashboard |
-| src/report/ | post-session report: real metrics + transcript + Gemini advice + Stage-3 placeholders | editing the report |
+| src/report/ | post-session report: real metrics + transcript (stress-weighted) + Gemini advice + real emphasis & tone cards (placeholder fallback when no material/old session) | editing the report |
 | src/mock/placeholders.ts | typed `measured:false` stub data (shaped to `@quack/shared`) | stubbing an unbuilt signal |
 | src/theme/ | Linear dark tokens (near-black + lavender accent + orb utility) | restyling / swapping design system |
 

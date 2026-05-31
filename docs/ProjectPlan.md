@@ -75,6 +75,7 @@ Optional, in rough priority order:
 - Gesture-speech synchrony via MediaPipe pose, once the video layer exists.
 - wireless earbud real time assistance.
 - Dynamic time increment lengths for chunking transcript (word count and analytics). Content-based chunking.
+- Multimodal context?
 
 ## Scope guidance and risks
 Keep the real-time side deliberately thin and spend build time on the aggregate analysis that differentiates the product. Main risks: the STT disfluency-preservation configuration, and the word-stress alignment in Stage 3. One quality note: emphasis-versus-meaning is much stronger when the user uploads the script or slides, since otherwise Gemini infers importance from the transcript alone, so the UI should actively encourage uploading the material. Avoid gold-plating the dashboard.

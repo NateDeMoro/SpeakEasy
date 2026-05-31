@@ -20,6 +20,22 @@
   gap: var(--s-4);
 }
 
+.app__account {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.app__email {
+  font-size: 13px;
+  color: var(--c-muted);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app__subtitle {
   color: var(--c-muted);
   margin: 0 0 var(--s-6);

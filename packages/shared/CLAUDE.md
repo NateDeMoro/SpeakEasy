@@ -17,6 +17,11 @@ Imported by both `apps/web` (recorder, report typing) and `apps/api` (aggregate 
 | src/context.ts | SpeechContext, ParsedMaterial, ContextFields | building context-capture UI |
 | src/config.ts | cross-cutting pace/pitch verdict bands (live + report) | changing a shared verdict threshold |
 
+## Stage status
+- Stage 3 populates the reserved optional fields — `TranscriptWord.stress` (browser) and
+  `AggregateReport.emphasisVsMeaning` / `.toneContentMismatch` (API). All additive/optional, so
+  **no `SCHEMA_VERSION` bump** and no change to this package's types.
+
 ## Adding a new signal/modality
 1. Emit `SignalChannel`s with a new `descriptor` (`${modality}.${signal}`).
 2. Register a `Summarizer` under that `signal` key in `summaries.ts` (generic fallback exists).

@@ -13,7 +13,11 @@ export interface SessionListItem {
   /** Epoch ms (Firestore serverTimestamp converted on read), or null. */
   createdAt: number | null;
   summary: string;
-  topMetrics: AggregateReport['metrics'];
+  /**
+   * Stats-only channel summaries (no timeline/events) so the row can compute the same delivery
+   * categories as the report via `deliveryMetrics` — single source of truth for the thresholds.
+   */
+  channelSummaries: ChannelSummary[];
 }
 
 /** A full stored rehearsal (`GET /api/sessions/:id`) — summaries, not raw series. */

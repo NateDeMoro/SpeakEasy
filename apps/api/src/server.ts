@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { AggregateInput, Transcript } from '@quack/shared';
+import type { AggregateInput, ChannelSummary, Transcript } from '@quack/shared';
 import { SCHEMA_VERSION } from '@quack/shared';
 import { FieldValue } from 'firebase-admin/firestore';
 import { runAggregate } from './aggregate/runAggregate.js';
@@ -78,11 +78,17 @@ app.get('/sessions', requireAuth, async (c) => {
     .get();
   const sessions = snap.docs.map((d) => {
     const v = d.data();
+    // Stats-only summaries (drop timeline/events): the client computes the same delivery-category
+    // verdicts as the report from these — keeps the thresholds in one place and the payload small.
+    const channelSummaries = ((v['channelSummaries'] ?? []) as ChannelSummary[]).map((s) => ({
+      descriptor: s.descriptor,
+      stats: s.stats,
+    }));
     return {
       sessionId: v['sessionId'],
       createdAt: v['createdAt']?.toMillis?.() ?? null,
       summary: v['report']?.summary ?? '',
-      topMetrics: (v['report']?.metrics ?? []).slice(0, 3),
+      channelSummaries,
     };
   });
   return c.json({ sessions });

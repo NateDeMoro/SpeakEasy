@@ -96,3 +96,53 @@ A Web App was registered via the Firebase MCP and its public config committed to
 if testing shows this); `onAuthStateChanged` double-subscribes under React StrictMode (the effect
 returns its unsubscribe to prevent a leaked listener). Old flat `sessions/*` test docs are orphaned
 by the new model — disposable, clean up to avoid confusion.
+
+## Recorder↔clip clock offset is the Stage-3 linchpin (calibrate once at MediaRecorder 'start')
+**Stage 3, audio alignment (apps/web). 2026-05-30.** STT word timestamps are relative to the
+recorded clip's t=0; the volume/pitch/pause channel series are relative to the Recorder's
+`performance.now()` t0, which is constructed *after* `startRecording()` (plus encoder startup
+latency). Slicing channels by word windows on the wrong clock would break stress, chunk cuts, and
+gap-fillers all at once.
+
+**Fix:** `AudioCapture` stamps `clipStartMs` in the MediaRecorder `'start'` event and returns
+`offsetMs = recorderT0Ms − clipStartMs` on `CaptureResult` (transient, never persisted). Convert
+with `tChannel = tClipWord − offsetMs` (read a channel for a word) and `tClip = tChannel + offsetMs`
+(place a pause boundary on the decoded clip). Residual constant encoder latency folds into the same
+bias. **Verify the sign empirically** — a clap/sharp word at a known clip time should land on the
+`audio.volume` spike after applying the offset.
+
+## Chunked long-form STT: seam de-dup + no-pause hard-cut + Safari decode portability
+**Stage 3, chunker (apps/web). 2026-05-30.** Sync STT caps inline audio at ~60s. The chunker
+(`audio/chunker.ts`) decodes the clip, downsamples to 16 kHz mono, and slices on detected pauses
+into <55s WAV segments recognized in parallel, stitched by per-segment offset.
+- **No pause in the window** → hard-cut at `maxSegMs` (rare mid-word split); adjacent segments
+  overlap by a ~300 ms guard and stitching de-dups seam words (same normalized text within 400 ms),
+  so a split word is neither dropped nor duplicated.
+- **Decode is best-effort** across Chrome (webm/opus) and Safari (mp4/aac); if `decodeAudioData`
+  throws, `chunkAudio` returns null and the caller falls back to the single whole-clip call (accepts
+  the ~60s cap) rather than failing the report.
+- **Payload:** WAV > opus, but 16 kHz mono is the Speech models' native rate (no accuracy loss) and
+  keeps the per-segment payload bounded. Verify: a >90s rehearsal transcribes fully with monotonic
+  timestamps across seams.
+
+## Acoustic gap-filler false positives (breaths, dramatic pauses)
+**Stage 3, fillers (apps/web). 2026-05-30.** Flagging voiced inter-word gaps as the "um"s STT drops
+risks catching breaths and deliberate pauses. Mitigation: conservative thresholds (200–600 ms),
+require voiced energy (reuse `PACE_SPEECH_GATE_DBFS` — a single source of truth, not a third
+loudness knob) AND near-flat pitch, and de-dup vs committed `audio.pause` events + STT fillers.
+Gap fillers carry `payload.source='gap'` and `c<1`, merged into the **one** `audio.filler` channel.
+Tune `GAP_*` in `apps/web/src/config.ts` from real recordings.
+
+## Emphasis: LLM extracts spans only; verdict computed in code (span→word matching is the risk)
+**Stage 3, aggregate (apps/api). 2026-05-30.** To stop the LLM drifting delivery numbers, Gemini
+(temp 0.1) returns only the important phrases + `importance` — never the measured stress.
+`computeEmphasisVerdicts` aligns each phrase to transcript word spans (normalized contiguous token
+match), assigns importance (unmatched → low baseline), reads `word.stress` as delivered, and sets
+match/under/over by `EMPHASIS_*_DELTA`. Emphasis is omitted (card → placeholder) when there is no
+transcript or it carries no `stress`.
+
+**Update (2026-05-31): importance now comes from the delivered transcript, not an uploaded script**,
+so the feature works with no material (material is optional extra context). This also largely
+removes the prior span→word matching risk — phrases are sourced from the transcript, so they align
+back to spoken words by construction (residual risk only from in-transcript repeats). Contingency if
+needed = tighten the match / a confidence floor.

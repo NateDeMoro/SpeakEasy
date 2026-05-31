@@ -94,9 +94,16 @@ export function App() {
     <div className="app">
       <header className="app__header">
         <h1 className="app__title">Speech Practice Coach</h1>
-        <button className="btn btn--ghost" onClick={() => void signOut()}>
-          Sign out
-        </button>
+        <div className="app__account">
+          {user.email && (
+            <span className="app__email" title={user.email}>
+              {user.email}
+            </span>
+          )}
+          <button className="btn btn--ghost" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </div>
       </header>
 
       {phase === 'idle' && (

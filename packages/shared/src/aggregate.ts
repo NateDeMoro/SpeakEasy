@@ -55,16 +55,28 @@ export interface CoverageFinding {
   runningLong?: boolean;
 }
 
+/** Stage 3: a candidate word within a key phrase that could carry the emphasis. */
+export interface EmphasisOption {
+  word: string;
+  /** Delivered acoustic stress for this candidate word, 0..1. */
+  stress: number;
+  /** Whether this word cleared the emphasis bar (true on any ⇒ the phrase passes). */
+  stressed: boolean;
+}
+
 /** Stage 3: did the speaker vocally stress the words that carry the point? */
 export interface EmphasisFinding {
+  /** The key phrase the finding spans (`under`), or the single word (`over`). */
   word: string;
   tStartMs: number;
   /** Importance from content/material, 0..1. */
   importance: number;
-  /** Acoustic stress actually delivered, 0..1. */
+  /** Peak delivered stress across the phrase's option words (`under`), or the word's stress (`over`), 0..1. */
   delivered: number;
-  /** under = important but flat; over = stressed but unimportant; match = aligned. */
+  /** under = no option word was stressed; over = stressed but unimportant; match = aligned. */
   verdict: 'match' | 'under' | 'over';
+  /** Candidate content words that could have carried the emphasis (`under` findings only). */
+  options?: EmphasisOption[];
 }
 
 /** Stage 3: content sentiment vs prosody (and, at Stage 4, facial channel). */

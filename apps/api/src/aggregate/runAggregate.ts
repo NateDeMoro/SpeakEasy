@@ -1,49 +1,277 @@
-import type { AggregateFn, AggregateInput, AggregateReport, MetricReadout } from '@quack/shared';
+import type {
+  AggregateFn,
+  AggregateInput,
+  AggregateReport,
+  ContextFields,
+  EmphasisFinding,
+  EmphasisOption,
+  MetricReadout,
+  MismatchFinding,
+  TranscriptWord,
+} from '@quack/shared';
 import { SCHEMA_VERSION, findSummary } from '@quack/shared';
-import { Type } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { getGeminiClient, loadGoogleConfig } from '../google/clients.js';
-import { GEMINI_MODEL_DEFAULT, GEMINI_SYSTEM_INSTRUCTION } from '../config.js';
+import {
+  GEMINI_MODEL_DEFAULT,
+  GEMINI_SYSTEM_INSTRUCTION,
+  GEMINI_EMPHASIS_INSTRUCTION,
+  GEMINI_TONE_INSTRUCTION,
+  GEMINI_EMPHASIS_TEMPERATURE,
+  GEMINI_TONE_TEMPERATURE,
+  EMPHASIS_UNDER_DELTA,
+  EMPHASIS_OVER_DELTA,
+  EMPHASIS_OVER_MIN_DELIVERED,
+  EMPHASIS_MAX_UNDER,
+  EMPHASIS_MAX_OVER,
+  EMPHASIS_STOPWORDS,
+} from '../config.js';
+
+/** Unmatched words get this low baseline importance (the talk is mostly supporting wording). */
+const EMPHASIS_BASELINE_IMPORTANCE = 0.2;
 
 /**
- * Stage 2 aggregate: send the session's channel summaries, transcript, planned material, and
- * audience/setting context to Gemini (Vertex AI, JSON mode) for a context-aware delivery report.
+ * Stage 3 aggregate: three independently-degrading Gemini calls (Vertex AI, JSON mode) run
+ * concurrently and merged into one report:
+ *   - report:   summary/advice/metrics/coverage (Stage 2, temp 0.4).
+ *   - emphasis: extract important phrases from the material (temp 0.1); each phrase's under/over
+ *               verdict is then computed IN CODE (phrase-level peak) against the measured `stress`.
+ *   - tone:     content sentiment vs delivered prosody (temp 0.3; the model owns these).
  *
- * Degrades gracefully, like the STT path: when Gemini is disabled/unavailable, or returns
- * malformed JSON, it falls back to `stubReport` so the report is never empty. The deterministic
- * volume/pause metrics from `floorMetrics` are also used as a floor if the model omits metrics.
+ * Each call is wrapped so a failure yields `undefined` rather than rejecting the whole report
+ * (allSettled-style, not a bare Promise.all). When Gemini is disabled/unavailable the core report
+ * falls back to `stubReport`; emphasis/tone simply stay absent (the cards fall back to placeholders).
  * Modality-agnostic throughout (reads channels via `findSummary`).
  */
 export const runAggregate: AggregateFn = async (input): Promise<AggregateReport> => {
   const client = getGeminiClient();
   if (!client) return stubReport(input);
+  const model = loadGoogleConfig().geminiModel ?? GEMINI_MODEL_DEFAULT;
 
-  try {
-    const res = await client.models.generateContent({
-      model: loadGoogleConfig().geminiModel ?? GEMINI_MODEL_DEFAULT,
-      contents: buildPrompt(input),
-      config: {
-        systemInstruction: GEMINI_SYSTEM_INSTRUCTION,
-        responseMimeType: 'application/json',
-        responseSchema: REPORT_SCHEMA,
-        temperature: 0.4,
-      },
-    });
-    const text = res.text;
-    if (!text) throw new Error('empty Gemini response');
-    const parsed = JSON.parse(text) as Omit<AggregateReport, 'schemaVersion'>;
-    return {
-      schemaVersion: SCHEMA_VERSION,
-      summary: parsed.summary,
-      // Floor: if the model returned no metrics, use the deterministic baseline.
-      metrics: parsed.metrics?.length ? parsed.metrics : floorMetrics(input),
-      prioritizedAdvice: parsed.prioritizedAdvice ?? [],
-      coverage: parsed.coverage,
-    };
-  } catch (err) {
-    console.error('[aggregate] Gemini call/parse failed, returning stub:', err);
-    return stubReport(input);
-  }
+  const [core, emphasisVsMeaning, toneContentMismatch] = await Promise.all([
+    generateReport(client, model, input).catch((err) => {
+      console.error('[aggregate] report call/parse failed, using stub:', err);
+      return undefined;
+    }),
+    analyzeEmphasis(client, model, input).catch((err) => {
+      console.error('[aggregate] emphasis call/parse failed, omitting:', err);
+      return undefined;
+    }),
+    analyzeTone(client, model, input).catch((err) => {
+      console.error('[aggregate] tone call/parse failed, omitting:', err);
+      return undefined;
+    }),
+  ]);
+
+  return {
+    ...(core ?? stubReport(input)),
+    emphasisVsMeaning,
+    toneContentMismatch,
+  };
 };
+
+/** The Stage-2 context-aware report (summary/advice/metrics/coverage). */
+async function generateReport(
+  client: GoogleGenAI,
+  model: string,
+  input: AggregateInput,
+): Promise<AggregateReport> {
+  const res = await client.models.generateContent({
+    model,
+    contents: buildPrompt(input),
+    config: {
+      systemInstruction: GEMINI_SYSTEM_INSTRUCTION,
+      responseMimeType: 'application/json',
+      responseSchema: REPORT_SCHEMA,
+      temperature: 0.4,
+    },
+  });
+  const text = res.text;
+  if (!text) throw new Error('empty Gemini response');
+  const parsed = JSON.parse(text) as Omit<AggregateReport, 'schemaVersion'>;
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    summary: parsed.summary,
+    // Floor: if the model returned no metrics, use the deterministic baseline.
+    metrics: parsed.metrics?.length ? parsed.metrics : floorMetrics(input),
+    prioritizedAdvice: parsed.prioritizedAdvice ?? [],
+    coverage: parsed.coverage,
+  };
+}
+
+/**
+ * Emphasis-vs-meaning. Gemini returns only the important phrases from the DELIVERED TRANSCRIPT (no
+ * uploaded script required, no delivery data); code then aligns them to transcript word spans and
+ * grades each phrase by its peak option word (emphasis may land on any content word). Returns
+ * undefined (→ placeholder card) when there is no transcript, or it carries no measured stress.
+ */
+async function analyzeEmphasis(
+  client: GoogleGenAI,
+  model: string,
+  input: AggregateInput,
+): Promise<EmphasisFinding[] | undefined> {
+  const words = input.transcript?.words;
+  if (!words || words.length === 0) return undefined;
+  if (!words.some((w) => typeof w.stress === 'number')) return undefined; // no delivered stress
+
+  const res = await client.models.generateContent({
+    model,
+    contents: buildEmphasisPrompt(input),
+    config: {
+      systemInstruction: GEMINI_EMPHASIS_INSTRUCTION,
+      responseMimeType: 'application/json',
+      responseSchema: EMPHASIS_SCHEMA,
+      temperature: GEMINI_EMPHASIS_TEMPERATURE,
+    },
+  });
+  const text = res.text;
+  if (!text) throw new Error('empty emphasis response');
+  const parsed = JSON.parse(text) as { important?: { phrase: string; importance: number }[] };
+  return computeEmphasisVerdicts(words, parsed.important ?? []);
+}
+
+/** Tone–content mismatch — subjective, so the model owns the fields directly. */
+async function analyzeTone(
+  client: GoogleGenAI,
+  model: string,
+  input: AggregateInput,
+): Promise<MismatchFinding[] | undefined> {
+  if (!input.transcript?.text) return undefined;
+  const res = await client.models.generateContent({
+    model,
+    contents: buildTonePrompt(input),
+    config: {
+      systemInstruction: GEMINI_TONE_INSTRUCTION,
+      responseMimeType: 'application/json',
+      responseSchema: TONE_SCHEMA,
+      temperature: GEMINI_TONE_TEMPERATURE,
+    },
+  });
+  const text = res.text;
+  if (!text) throw new Error('empty tone response');
+  const parsed = JSON.parse(text) as { toneContentMismatch?: MismatchFinding[] };
+  return parsed.toneContentMismatch ?? [];
+}
+
+function clamp01(x: number): number {
+  return Math.max(0, Math.min(1, x));
+}
+
+/** Normalize a token for span matching: lowercase, strip non-alphanumeric (keeps apostrophes). */
+function normToken(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9']+/g, '');
+}
+
+interface PhraseSpan {
+  start: number;
+  len: number;
+  importance: number;
+}
+
+/**
+ * Phrase-level emphasis grading. Important phrases are matched to contiguous transcript spans, then
+ * each phrase is judged as a unit by its PEAK option word — emphasis is allowed to land on ANY of a
+ * phrase's content words, so we flag `under` once per phrase only when none of them cleared the bar
+ * (collapsing what used to be one flag per flat word). `over` is the inverse and stays per-word but
+ * tightened to a genuine stress spike on an unimportant word. Both lists are capped.
+ */
+function computeEmphasisVerdicts(
+  words: TranscriptWord[],
+  important: { phrase: string; importance: number }[],
+): EmphasisFinding[] {
+  const n = words.length;
+  const normWords = words.map((w) => normToken(w.text));
+  const importance = new Array<number>(n).fill(EMPHASIS_BASELINE_IMPORTANCE);
+  const stressAt = (i: number) => clamp01(typeof words[i]!.stress === 'number' ? words[i]!.stress! : 0.5);
+
+  // Match every important phrase to all of its contiguous spans; paint per-word importance (max).
+  const spans: PhraseSpan[] = [];
+  for (const { phrase, importance: impRaw } of important) {
+    const imp = clamp01(impRaw);
+    const tokens = phrase.split(/\s+/).map(normToken).filter(Boolean);
+    if (tokens.length === 0) continue;
+    for (let i = 0; i + tokens.length <= n; i++) {
+      let hit = true;
+      for (let j = 0; j < tokens.length; j++) {
+        if (normWords[i + j] !== tokens[j]) {
+          hit = false;
+          break;
+        }
+      }
+      if (!hit) continue;
+      spans.push({ start: i, len: tokens.length, importance: imp });
+      for (let j = 0; j < tokens.length; j++) importance[i + j] = Math.max(importance[i + j]!, imp);
+    }
+  }
+
+  // Dedup overlapping spans (prefer longer, then higher importance) so one phrase = one finding.
+  const covered = new Array<boolean>(n).fill(false);
+  const kept: PhraseSpan[] = [];
+  spans.sort((a, b) => b.len - a.len || b.importance - a.importance);
+  for (const s of spans) {
+    let overlaps = false;
+    for (let k = s.start; k < s.start + s.len; k++) if (covered[k]) { overlaps = true; break; }
+    if (overlaps) continue;
+    for (let k = s.start; k < s.start + s.len; k++) covered[k] = true;
+    kept.push(s);
+  }
+
+  // UNDER: one finding per phrase; passes when any content (option) word clears the bar.
+  const under: EmphasisFinding[] = [];
+  for (const s of kept) {
+    const bar = s.importance - EMPHASIS_UNDER_DELTA; // a word "lands" the phrase if stress ≥ bar
+    const optIdx: number[] = [];
+    for (let k = s.start; k < s.start + s.len; k++) {
+      if (!words[k]!.isDisfluency && !EMPHASIS_STOPWORDS.has(normWords[k]!)) optIdx.push(k);
+    }
+    if (optIdx.length === 0) continue; // all-stopword phrase: no real emphasis target
+    const peak = Math.max(...optIdx.map(stressAt));
+    if (peak >= bar) continue; // landed on at least one option → not notable
+    const options: EmphasisOption[] = optIdx.map((k) => ({
+      word: words[k]!.text,
+      stress: stressAt(k),
+      stressed: stressAt(k) >= bar,
+    }));
+    under.push({
+      word: words.slice(s.start, s.start + s.len).map((w) => w.text).join(' '),
+      tStartMs: words[s.start]!.tStartMs,
+      importance: s.importance,
+      delivered: peak,
+      verdict: 'under',
+      options,
+    });
+  }
+  under.sort((a, b) => (b.importance - b.delivered) - (a.importance - a.delivered));
+
+  // OVER: unimportant content words with a genuine stress spike (absolute floor + delta), capped.
+  const over: EmphasisFinding[] = [];
+  words.forEach((w, i) => {
+    if (w.isDisfluency || EMPHASIS_STOPWORDS.has(normWords[i]!)) return;
+    const delivered = stressAt(i);
+    const imp = importance[i]!;
+    if (delivered < EMPHASIS_OVER_MIN_DELIVERED) return;
+    if (delivered - imp < EMPHASIS_OVER_DELTA) return;
+    over.push({ word: w.text, tStartMs: w.tStartMs, importance: imp, delivered, verdict: 'over' });
+  });
+  over.sort((a, b) => b.delivered - a.delivered);
+
+  return [...under.slice(0, EMPHASIS_MAX_UNDER), ...over.slice(0, EMPHASIS_MAX_OVER)];
+}
+
+/** Serialize the audience/setting fields into a prompt block, or null when none are set. */
+function settingsBlock(settings?: ContextFields): string | null {
+  if (!settings) return null;
+  const s = settings;
+  const lines = [
+    s.audience && `Audience: ${s.audience}`,
+    s.audienceSize && `Audience size: ${s.audienceSize}`,
+    s.audienceBackground && `Audience background: ${s.audienceBackground}`,
+    s.location && `Location: ${s.location}`,
+    s.presentationType && `Presentation type: ${s.presentationType}`,
+    s.notes && `Notes: ${s.notes}`,
+  ].filter(Boolean);
+  return lines.length ? `Audience/setting:\n${lines.join('\n')}` : null;
+}
 
 /** Serialize the aggregate input into a single prompt string for the report. */
 function buildPrompt(input: AggregateInput): string {
@@ -55,17 +283,35 @@ function buildPrompt(input: AggregateInput): string {
   if (input.speechMaterial?.combinedText) {
     parts.push(`Planned material:\n${input.speechMaterial.combinedText}`);
   }
-  if (input.settings) {
-    const s = input.settings;
-    const lines = [
-      s.audience && `Audience: ${s.audience}`,
-      s.audienceSize && `Audience size: ${s.audienceSize}`,
-      s.audienceBackground && `Audience background: ${s.audienceBackground}`,
-      s.location && `Location: ${s.location}`,
-      s.presentationType && `Presentation type: ${s.presentationType}`,
-      s.notes && `Notes: ${s.notes}`,
-    ].filter(Boolean);
-    if (lines.length) parts.push(`Audience/setting:\n${lines.join('\n')}`);
+  const settings = settingsBlock(input.settings);
+  if (settings) parts.push(settings);
+  return parts.join('\n\n');
+}
+
+/** Emphasis prompt: delivered transcript (the source of importance) + optional material. No numbers. */
+function buildEmphasisPrompt(input: AggregateInput): string {
+  const parts: string[] = [];
+  if (input.transcript?.text) {
+    parts.push(`Delivered transcript (the source of importance):\n${input.transcript.text}`);
+  }
+  if (input.speechMaterial?.combinedText) {
+    parts.push(`Planned material (optional extra context):\n${input.speechMaterial.combinedText}`);
+  }
+  const settings = settingsBlock(input.settings);
+  if (settings) parts.push(settings);
+  return parts.join('\n\n');
+}
+
+/** Tone prompt: transcript + prosody timelines (pitch/volume/pace) + planned material. */
+function buildTonePrompt(input: AggregateInput): string {
+  const parts: string[] = [];
+  if (input.transcript?.text) parts.push(`Transcript:\n${input.transcript.text}`);
+  const prosody = input.channelSummaries.filter((s) =>
+    ['pitch', 'volume', 'pace'].includes(s.descriptor.signal),
+  );
+  parts.push(`Prosody timelines (pitch/volume/pace; stats + coarse time buckets):\n${JSON.stringify(prosody)}`);
+  if (input.speechMaterial?.combinedText) {
+    parts.push(`Planned material:\n${input.speechMaterial.combinedText}`);
   }
   return parts.join('\n\n');
 }
@@ -152,4 +398,49 @@ const REPORT_SCHEMA = {
     },
   },
   required: ['summary', 'prioritizedAdvice', 'metrics'],
+};
+
+/**
+ * Emphasis call schema: the important phrases/spans from the material with an importance 0..1. The
+ * model returns ONLY spans + importance — it never sees or scores delivery; the verdict is computed
+ * in `computeEmphasisVerdicts` against the measured per-word stress.
+ */
+const EMPHASIS_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    important: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          phrase: { type: Type.STRING },
+          importance: { type: Type.NUMBER },
+        },
+        required: ['phrase', 'importance'],
+      },
+    },
+  },
+  required: ['important'],
+};
+
+/** Tone call schema: content-sentiment vs delivered-prosody mismatch findings (subjective). */
+const TONE_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    toneContentMismatch: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          tStartMs: { type: Type.NUMBER },
+          tEndMs: { type: Type.NUMBER },
+          contentSentiment: { type: Type.STRING },
+          deliveredTone: { type: Type.STRING },
+          detail: { type: Type.STRING },
+        },
+        required: ['tStartMs', 'tEndMs', 'contentSentiment', 'deliveredTone', 'detail'],
+      },
+    },
+  },
+  required: ['toneContentMismatch'],
 };

@@ -188,7 +188,91 @@
   color: var(--c-body-strong);
 }
 
-/* Stage 3 placeholder cards. */
+/* Stage 3: emphasis vs. meaning. */
+.emphasis__list,
+.mismatch__list {
+  margin: var(--s-3) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.emphasis__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.emphasis__verdict {
+  font-family: var(--t-mono-family);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-pill);
+  padding: 1px 8px;
+}
+
+.emphasis__verdict--under {
+  color: var(--c-meter-watch);
+}
+
+.emphasis__verdict--over {
+  color: var(--c-meter-flag);
+}
+
+.emphasis__word {
+  font-family: var(--t-display-family);
+  font-weight: var(--t-title-weight);
+  color: var(--c-ink);
+}
+
+.emphasis__scores {
+  font-family: var(--t-mono-family);
+  font-size: 12px;
+  color: var(--c-muted);
+}
+
+.emphasis__options {
+  flex-basis: 100%;
+  font-family: var(--t-mono-family);
+  font-size: 12px;
+  color: var(--c-muted);
+}
+
+/* Stage 3: tone–content mismatch. */
+.mismatch__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mismatch__clock {
+  font-family: var(--t-mono-family);
+  font-size: 12px;
+  color: var(--c-muted);
+}
+
+.mismatch__tones {
+  font-family: var(--t-display-family);
+  font-weight: var(--t-title-weight);
+  color: var(--c-ink);
+}
+
+.mismatch__arrow {
+  color: var(--c-muted);
+}
+
+.mismatch__detail {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--c-body);
+}
+
+/* Dimmed illustrative state shown when real data is absent (no material / old session). */
 .placeholder {
   opacity: 0.85;
 }

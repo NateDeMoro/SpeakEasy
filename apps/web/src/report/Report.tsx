@@ -1,83 +1,17 @@
-import type { AggregateReport, ChannelSummary, Transcript } from '@quack/shared';
+import type {
+  AggregateReport,
+  ChannelSummary,
+  EmphasisFinding,
+  MismatchFinding,
+  Transcript,
+} from '@quack/shared';
 import {
-  PACE_SLOW_MAX_SPS,
-  PACE_FAST_MIN_SPS,
   PACE_WPM_SLOW_MAX,
   PACE_WPM_FAST_MIN,
-  PITCH_MONOTONE_MAX_HZ,
-  PITCH_VARIED_MAX_HZ,
 } from '@quack/shared';
-import { VOL_FLOOR_DB, VOL_CEIL_DB, VOL_TOO_QUIET_FRAC, VOL_TOO_LOUD_FRAC } from '../config.js';
+import { EMPHASIS_PLACEHOLDER, MISMATCH_PLACEHOLDER } from '../mock/placeholders.js';
+import { deliveryMetrics, VERDICT_COLOR, type Verdict } from './metrics.js';
 import './report.css';
-
-/** Find a summary by its signal name (modality-agnostic). */
-function findSig(summaries: ChannelSummary[], signal: string): ChannelSummary | undefined {
-  return summaries.find((s) => s.descriptor.signal === signal);
-}
-
-type Verdict = 'good' | 'watch' | 'flag';
-const VERDICT_COLOR: Record<Verdict, string> = {
-  good: 'var(--c-meter-good)',
-  watch: 'var(--c-meter-watch)',
-  flag: 'var(--c-meter-flag)',
-};
-
-interface Metric {
-  label: string;
-  /** The glanceable category (e.g. "Too slow", "Good") for graded signals, else the raw value. */
-  value: string;
-  /** Specific reading (e.g. "1.8 syll/s") surfaced on hover for graded signals. */
-  detail?: string;
-  verdict?: Verdict;
-}
-
-/**
- * Real delivery metrics from the on-device channel summaries (not Gemini). `omitPace` drops the
- * coarse syllable-onset pace card when the STT transcript is available — the per-quarter WPM
- * timeline (PaceTimeline) replaces it.
- */
-function deliveryMetrics(summaries: ChannelSummary[], omitPace = false): Metric[] {
-  const metrics: Metric[] = [];
-
-  const volume = findSig(summaries, 'volume');
-  if (volume) {
-    const dbfs = volume.stats['mean'] ?? 0;
-    const frac = (dbfs - VOL_FLOOR_DB) / (VOL_CEIL_DB - VOL_FLOOR_DB);
-    const category =
-      frac < VOL_TOO_QUIET_FRAC ? 'Too quiet' : frac > VOL_TOO_LOUD_FRAC ? 'Too loud' : 'Good';
-    const verdict: Verdict =
-      frac < VOL_TOO_QUIET_FRAC ? 'watch' : frac > VOL_TOO_LOUD_FRAC ? 'flag' : 'good';
-    metrics.push({ label: 'Mean volume', value: category, detail: `${dbfs.toFixed(0)} dBFS`, verdict });
-  }
-
-  const pace = findSig(summaries, 'pace');
-  if (pace && !omitPace) {
-    const sps = pace.stats['mean'] ?? 0;
-    const category = sps < PACE_SLOW_MAX_SPS ? 'Too slow' : sps > PACE_FAST_MIN_SPS ? 'Too fast' : 'Good';
-    const verdict: Verdict = sps < PACE_SLOW_MAX_SPS ? 'watch' : sps > PACE_FAST_MIN_SPS ? 'flag' : 'good';
-    metrics.push({ label: 'Pace', value: category, detail: `${sps.toFixed(1)} syll/s`, verdict });
-  }
-
-  const pitch = findSig(summaries, 'pitch');
-  if (pitch) {
-    const varHz = pitch.stats['std'] ?? 0;
-    const category =
-      varHz < PITCH_MONOTONE_MAX_HZ ? 'Monotone' : varHz < PITCH_VARIED_MAX_HZ ? 'Good' : 'Expressive';
-    const verdict: Verdict = varHz < PITCH_MONOTONE_MAX_HZ ? 'watch' : 'good';
-    metrics.push({ label: 'Pitch variation', value: category, detail: `${varHz.toFixed(0)} Hz`, verdict });
-  }
-
-  const pause = findSig(summaries, 'pause');
-  if (pause) metrics.push({ label: 'Pauses', value: `${pause.stats['count'] ?? 0}` });
-
-  const filler = findSig(summaries, 'filler');
-  if (filler) {
-    const count = filler.stats['count'] ?? 0;
-    metrics.push({ label: 'Filler words', value: `${count}`, verdict: count > 4 ? 'watch' : 'good' });
-  }
-
-  return metrics;
-}
 
 // --- transcript-derived pace (real WPM, chunked over time) ----------------------
 
@@ -209,7 +143,17 @@ export function Report({ summaries, transcript, report, reportPending, transcrib
             ) : (
               <p className="transcript__text">
                 {transcript.words.map((w, i) => (
-                  <span key={i} className={w.isDisfluency ? 'filler-word' : undefined}>
+                  <span
+                    key={i}
+                    className={w.isDisfluency ? 'filler-word' : undefined}
+                    // Stage 3: weight each word by its measured acoustic stress so the more
+                    // emphasized words read heavier. No effect on old sessions (stress absent).
+                    style={
+                      typeof w.stress === 'number'
+                        ? { opacity: 0.55 + 0.45 * w.stress, fontWeight: w.stress > 0.66 ? 600 : 400 }
+                        : undefined
+                    }
+                  >
                     {w.text}{' '}
                   </span>
                 ))}
@@ -265,14 +209,96 @@ export function Report({ summaries, transcript, report, reportPending, transcrib
         )}
       </div>
 
-      <PlaceholderCard
-        label="Emphasis vs. meaning"
-        blurb="Did you vocally stress the words that carry the point? Lands with Gemini + alignment (Stage 3)."
-      />
-      <PlaceholderCard
-        label="Tone–content mismatch"
-        blurb="Content sentiment vs. delivered prosody — e.g. an exciting result delivered flat (Stage 3)."
-      />
+      {report?.emphasisVsMeaning ? (
+        <EmphasisCard findings={report.emphasisVsMeaning} />
+      ) : (
+        <EmphasisCard findings={EMPHASIS_PLACEHOLDER.sample} example />
+      )}
+
+      {report?.toneContentMismatch ? (
+        <ToneCard findings={report.toneContentMismatch} />
+      ) : (
+        <ToneCard findings={MISMATCH_PLACEHOLDER.sample} example />
+      )}
+    </div>
+  );
+}
+
+/** mm:ss for a finding, percent for a 0..1 score. */
+function pct(x: number): string {
+  return `${Math.round(x * 100)}%`;
+}
+
+/**
+ * Emphasis vs. meaning: the notable words where vocal stress and content importance diverged —
+ * `under` (important but flat) and `over` (stressed but unimportant). `example` renders the
+ * illustrative placeholder (no material / pre-Stage-3 session) dimmed and tagged.
+ */
+function EmphasisCard({ findings, example }: { findings: EmphasisFinding[]; example?: boolean }) {
+  return (
+    <div className={`card emphasis${example ? ' placeholder' : ''}`}>
+      <p className="card__label">
+        Emphasis vs. meaning
+        {example && <span className="placeholder__tag">example</span>}
+      </p>
+      {example && (
+        <p className="card__hint">Shown as an example — record a rehearsal to measure your own emphasis.</p>
+      )}
+      {!example && findings.length === 0 ? (
+        <p className="card__hint">Your vocal emphasis landed on the words that carry the point.</p>
+      ) : (
+        <ul className="emphasis__list">
+          {findings.map((f, i) => (
+            <li className="emphasis__item" key={i}>
+              <span className={`emphasis__verdict emphasis__verdict--${f.verdict}`}>
+                {f.verdict === 'under' ? 'under' : 'over'}
+              </span>
+              <span className="emphasis__word">{f.word}</span>
+              <span className="emphasis__scores">
+                meaning {pct(f.importance)} · delivered {pct(f.delivered)}
+              </span>
+              {f.options && f.options.length > 0 && (
+                <span className="emphasis__options">
+                  emphasize any of: {f.options.map((o) => o.word).join(' · ')}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Tone–content mismatch: windows where the content's sentiment and the delivered prosody diverged.
+ * `example` renders the illustrative placeholder dimmed and tagged.
+ */
+function ToneCard({ findings, example }: { findings: MismatchFinding[]; example?: boolean }) {
+  return (
+    <div className={`card mismatch${example ? ' placeholder' : ''}`}>
+      <p className="card__label">
+        Tone–content mismatch
+        {example && <span className="placeholder__tag">example</span>}
+      </p>
+      {example && (
+        <p className="card__hint">A full-length rehearsal surfaces these from your prosody.</p>
+      )}
+      {!example && findings.length === 0 ? (
+        <p className="card__hint">Your delivered tone matched the content throughout.</p>
+      ) : (
+        <ul className="mismatch__list">
+          {findings.map((f, i) => (
+            <li className="mismatch__item" key={i}>
+              <span className="mismatch__clock">{fmtClock(f.tStartMs)}</span>
+              <span className="mismatch__tones">
+                {f.contentSentiment} <span className="mismatch__arrow">→</span> {f.deliveredTone}
+              </span>
+              <span className="mismatch__detail">{f.detail}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -320,13 +346,3 @@ function CoverageList({ title, tone, items }: { title: string; tone: Verdict; it
   );
 }
 
-function PlaceholderCard({ label, blurb }: { label: string; blurb: string }) {
-  return (
-    <div className="card placeholder">
-      <p className="card__label">
-        {label} <span className="placeholder__tag">coming soon</span>
-      </p>
-      <p className="card__hint">{blurb}</p>
-    </div>
-  );
-}

@@ -30,7 +30,17 @@ export const FILLER_CUE_PLACEHOLDER: Placeholder<{ note: string }> = {
 export const EMPHASIS_PLACEHOLDER: Placeholder<EmphasisFinding[]> = {
   measured: false,
   sample: [
-    { word: 'breakthrough', tStartMs: 12400, importance: 0.9, delivered: 0.3, verdict: 'under' },
+    {
+      word: 'the breakthrough result',
+      tStartMs: 12400,
+      importance: 0.9,
+      delivered: 0.3,
+      verdict: 'under',
+      options: [
+        { word: 'breakthrough', stress: 0.3, stressed: false },
+        { word: 'result', stress: 0.26, stressed: false },
+      ],
+    },
     { word: 'obviously', tStartMs: 18800, importance: 0.2, delivered: 0.8, verdict: 'over' },
   ],
 };

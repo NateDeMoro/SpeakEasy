@@ -52,6 +52,28 @@ export const NUDGE_MAX_SHOW_MS = 8000; // stop showing a stuck nudge even if unr
 export const NUDGE_QUIET_DBFS = -45; // volume threshold for the quiet nudge
 export const NUDGE_DEAD_AIR_MS = 2000; // dead-air duration that triggers the nudge rule
 
+// --- per-word acoustic stress (audio/stress.ts, Stage 3) ------------------------
+// Weights for the three z-scored stress components, summed (weighted mean of available
+// components) then logistic-squashed to 0..1. Tunable; pitch/duration weighted below loudness.
+export const STRESS_W_LOUD = 1.0; // loudness: mean dBFS in the word window
+export const STRESS_W_PITCH = 0.8; // pitch prominence: deviation + range vs the talk's median pitch
+export const STRESS_W_DURATION = 0.6; // lengthening: word duration vs the talk's typical word duration
+
+// --- acoustic filler-gap detection (audio/fillers.ts, Stage 3) ------------------
+// Flag voiced inter-word gaps STT left untagged (durable fix for the Stage-1 filler miss).
+// Conservative by design to avoid flagging breaths / dramatic pauses.
+export const GAP_MIN_MS = 200; // shorter is between-word coarticulation, not a filler
+export const GAP_MAX_MS = 600; // longer reads as a deliberate pause, not an "um"
+export const GAP_PITCH_FLAT_HZ = 12; // in-window pitch std below this reads as the flat drone of an "um"
+// The voiced gate reuses PACE_SPEECH_GATE_DBFS (the existing speech/silence floor) — a single source
+// of truth rather than a third loudness threshold that can drift (see web CLAUDE.md).
+
+// --- chunked long-form STT (audio/chunker.ts, Stage 3) --------------------------
+// Sync STT caps inline audio at ~60s. Clips longer than this are sliced into <60s WAV segments
+// (snapped to detected pauses), recognized in parallel, and stitched. Single source of truth for
+// both the chunk gate (useAudioCapture) and the chunker's max segment length.
+export const STT_MAX_SEGMENT_MS = 55000;
+
 // --- dashboard meters (dashboard/Dashboard.tsx) ---------------------------------
 export const VOL_FLOOR_DB = -55; // ~silence reads 0
 export const VOL_CEIL_DB = 0; // only a shout / clipping reaches 100

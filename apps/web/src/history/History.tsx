@@ -1,11 +1,6 @@
 import type { SessionListItem } from './sessions.js';
+import { deliveryMetrics, VERDICT_COLOR } from '../report/metrics.js';
 import './history.css';
-
-const VERDICT_COLOR: Record<string, string> = {
-  good: 'var(--c-meter-good)',
-  watch: 'var(--c-meter-watch)',
-  flag: 'var(--c-meter-flag)',
-};
 
 function formatWhen(ms: number | null): string {
   if (!ms) return 'unknown date';
@@ -38,25 +33,29 @@ export function History({ items, loading, error, onSelect }: HistoryProps) {
 
   return (
     <div className="history">
-      {items.map((s) => (
-        <button key={s.sessionId} className="history__item" onClick={() => onSelect(s.sessionId)}>
-          <span className="history__when">{formatWhen(s.createdAt)}</span>
-          <span className="history__summary">{s.summary || 'No summary'}</span>
-          <span className="history__metrics">
-            {s.topMetrics?.map((m, i) => (
-              <span key={i} className="history__metric">
-                {m.verdict && (
-                  <span
-                    className="history__dot"
-                    style={{ backgroundColor: VERDICT_COLOR[m.verdict] ?? 'var(--c-hairline-strong)' }}
-                  />
-                )}
-                {m.label}: {m.value}
-              </span>
-            ))}
-          </span>
-        </button>
-      ))}
+      {items.map((s) => {
+        // Same graded categories the report shows (volume/pace/pitch), not raw units.
+        const metrics = deliveryMetrics(s.channelSummaries ?? []).filter((m) => m.verdict).slice(0, 3);
+        return (
+          <button key={s.sessionId} className="history__item" onClick={() => onSelect(s.sessionId)}>
+            <span className="history__when">{formatWhen(s.createdAt)}</span>
+            <span className="history__summary">{s.summary || 'No summary'}</span>
+            <span className="history__metrics">
+              {metrics.map((m, i) => (
+                <span key={i} className="history__metric" title={m.detail}>
+                  {m.verdict && (
+                    <span
+                      className="history__dot"
+                      style={{ backgroundColor: VERDICT_COLOR[m.verdict] }}
+                    />
+                  )}
+                  {m.label}: {m.value}
+                </span>
+              ))}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
