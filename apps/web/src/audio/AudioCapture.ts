@@ -6,6 +6,7 @@ import { PauseProcessor } from './processors/pause.js';
 import { PaceProcessor } from './processors/pace.js';
 import { PitchProcessor } from './processors/pitch.js';
 import { NudgeEngine } from './NudgeEngine.js';
+import { SpeechCoach } from './SpeechCoach.js';
 import {
   CAPTURE_DEAD_AIR_MS as DEAD_AIR_MS,
   FFT_SIZE,
@@ -55,6 +56,7 @@ export class AudioCapture {
   private pace = new PaceProcessor();
   private pitch = new PitchProcessor();
   private nudges = new NudgeEngine();
+  private coach = new SpeechCoach();
 
   constructor(private readonly onSnapshot: (s: LiveSnapshot) => void) {}
 
@@ -76,6 +78,7 @@ export class AudioCapture {
 
     for (const p of [this.volume, this.pause, this.pace, this.pitch]) p.reset();
     this.nudges.reset();
+    this.coach.reset();
     this.recorderT0Ms = performance.now();
     this.recorder = new Recorder(this.recorderT0Ms, new Date().toISOString());
     this.recorder.register(this.volume.descriptor);
@@ -107,6 +110,11 @@ export class AudioCapture {
       deadAirMs,
       pitchVarHz: this.pitch.lastVarHz,
     });
+    const audioCue = this.coach.update({
+      tMs,
+      volumeDbfs: this.volume.lastDbfs,
+      paceSps: this.pace.lastSps,
+    });
 
     this.onSnapshot({
       tMs,
@@ -117,6 +125,7 @@ export class AudioCapture {
       pitchHz: this.pitch.lastHz,
       pitchVarHz: this.pitch.lastVarHz,
       nudge,
+      audioCue,
     });
 
     this.rafId = requestAnimationFrame(this.loop);

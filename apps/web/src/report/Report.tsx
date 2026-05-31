@@ -235,9 +235,6 @@ export function Report({
                 {coverage.pointsCovered.length > 0 && coverage.pointsMissed.length === 0 && (
                   <p className="card__hint">All parts covered.</p>
                 )}
-                {coverage.deviations && coverage.deviations.length > 0 && (
-                  <CoverageList title="Off-script" tone="watch" items={coverage.deviations} />
-                )}
                 {coverage.runningLong && (
                   <p className="card__hint">Ran notably long vs. the planned material.</p>
                 )}

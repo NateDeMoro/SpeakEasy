@@ -1,0 +1,57 @@
+/* Audio-coach control: opt-in spoken-cue toggle (idle + live screens). */
+.coach {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  margin-bottom: var(--s-5);
+}
+
+.coach__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--t-body-family);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-body-strong);
+  background: transparent;
+  border: 1px solid var(--c-hairline-strong);
+  border-radius: var(--radius-pill);
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.coach__toggle:hover:not(:disabled) {
+  border-color: var(--c-primary);
+}
+
+.coach__toggle:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+.coach__toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.coach__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--c-hairline-strong);
+  transition: background-color 150ms ease;
+}
+
+.coach__toggle--on .coach__dot {
+  background: var(--c-meter-good);
+}
+
+.coach__note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+  color: var(--c-muted-soft);
+}

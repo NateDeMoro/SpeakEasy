@@ -32,7 +32,7 @@ export const PITCH_EMIT_INTERVAL_MS = 100; // record pitch ~10x/sec
 export const PITCH_CLARITY_GATE = 0.8; // below this the pitch estimate is unreliable — ignore
 export const PITCH_MIN_HZ = 70; // human speech floor; rejects rumble/DC
 export const PITCH_MAX_HZ = 400; // human speech ceiling; rejects harmonics/hiss
-export const DEFAULT_PITCH_WINDOW_MS = 5000; // rolling window for the pitch-variation (std) readout
+export const DEFAULT_PITCH_WINDOW_MS = 2500; // rolling window for the pitch-variation (std) readout — short enough that a single monotone sentence reads as flat, not averaged with prior varied speech
 export const PITCH_DISPLAY_ALPHA = 0.25; // EMA on the displayed Hz so it glides instead of stepping
 export const PITCH_VOICED_HOLD_MS = 250; // keep showing the last pitch through brief unvoiced gaps
 
@@ -51,6 +51,15 @@ export const NUDGE_COOLDOWN_MS = 2500; // quiet gap after a nudge clears
 export const NUDGE_MAX_SHOW_MS = 8000; // stop showing a stuck nudge even if unresolved
 export const NUDGE_QUIET_DBFS = -45; // volume threshold for the quiet nudge
 export const NUDGE_DEAD_AIR_MS = 2000; // dead-air duration that triggers the nudge rule
+
+// --- spoken cue engine (audio/SpeechCoach.ts) -----------------------------------
+// The opt-in audio layer. Deliberately a higher bar than the on-screen nudge: a condition must
+// hold this long before anything is spoken (real-time metrics jump around, and audio is intrusive),
+// then a long quiet gap before the next cue so it never nags. Pace/volume thresholds are reused
+// from the nudge + `@quack/shared` — only the loud threshold (no quiet-side counterpart) is new.
+export const AUDIO_CUE_SUSTAIN_MS = 3000; // condition must persist this long before speaking a cue
+export const AUDIO_CUE_COOLDOWN_MS = 10000; // long quiet gap after a cue fires
+export const AUDIO_CUE_LOUD_DBFS = -12; // above this (while speaking) reads as too loud — tune via the dev dBFS readout
 
 // --- per-word acoustic stress (audio/stress.ts, Stage 3) ------------------------
 // Weights for the three z-scored stress components, summed (weighted mean of available

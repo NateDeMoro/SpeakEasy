@@ -1,4 +1,4 @@
-# Slide: "How the Coach Decides"
+# Slide: "How SpeakEasy Decides"
 
 Content + layout spec for one pitch slide that shows judges *specifically* how the
 backend turns audio into coaching — how **tone** is calculated, and how
@@ -10,7 +10,7 @@ constants — see **Source of truth** to re-verify before presenting.
 ---
 
 ## Title
-**How the Coach Decides**
+**How SpeakEasy Decides**
 *One mic stream, two decision engines*
 
 ---

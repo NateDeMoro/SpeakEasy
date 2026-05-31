@@ -15,6 +15,7 @@ import {
   PACE_LITTLE_FAST_MAX,
 } from '../config.js';
 import { FILLER_CUE_PLACEHOLDER } from '../mock/placeholders.js';
+import { useSpokenCue } from '../coach/useSpokenCue.js';
 
 // --- volume: map a speaking dBFS range to a positive 0..100 level --------------
 
@@ -99,11 +100,15 @@ export function Dashboard({ snapshot }: DashboardProps) {
   const frac = volumeLevel(snapshot.volumeDbfs);
   const pace = paceCategory(snapshot.paceSps);
   const pitch = pitchCategory(snapshot.pitchVarHz);
+  // A spoken cue (when enabled) briefly takes over the hero, in place of the calm nudge.
+  const spokenCue = useSpokenCue(snapshot);
 
   return (
     <div className="live">
       <div className={`nudge nudge--hero orb orb--${orbState(snapshot)}`} aria-live="polite">
-        {snapshot.nudge ? (
+        {spokenCue ? (
+          <span className="nudge__text">{spokenCue}</span>
+        ) : snapshot.nudge ? (
           <span className="nudge__text">{snapshot.nudge}</span>
         ) : (
           <span className="nudge__text nudge__text--idle">You're doing fine — keep going.</span>

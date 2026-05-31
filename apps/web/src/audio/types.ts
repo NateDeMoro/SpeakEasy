@@ -20,6 +20,16 @@ export interface SignalProcessor {
   reset(): void;
 }
 
+/**
+ * A high-bar spoken coaching cue. `seq` increments only when a *fresh* cue fires, so the consumer
+ * can speak/alert exactly once per cue even though the snapshot updates every frame.
+ */
+export interface AudioCue {
+  id: string;
+  phrase: string;
+  seq: number;
+}
+
 /** Live values for the dashboard, refreshed every animation frame. */
 export interface LiveSnapshot {
   tMs: number;
@@ -33,4 +43,6 @@ export interface LiveSnapshot {
   pitchVarHz: number;
   /** The single calm coaching nudge, or null when nothing to surface. */
   nudge: string | null;
+  /** The latest spoken cue (opt-in audio layer); `seq` bumps only on a fresh fire. */
+  audioCue: AudioCue | null;
 }

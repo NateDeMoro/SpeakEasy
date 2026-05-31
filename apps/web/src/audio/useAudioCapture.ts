@@ -25,6 +25,7 @@ const IDLE_SNAPSHOT: LiveSnapshot = {
   pitchHz: 0,
   pitchVarHz: 0,
   nudge: null,
+  audioCue: null,
 };
 
 export interface CaptureState {

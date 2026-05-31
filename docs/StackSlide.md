@@ -2,7 +2,7 @@
 
 Content + layout spec for one pitch slide that makes the **Google stack** the hero — one
 Google service per infrastructure tier, so a judge sees the breadth of the ecosystem in a
-single frame. Complements `docs/BackendSlide.md` (which explains *how* the coach decides)
+single frame. Complements `docs/BackendSlide.md` (which explains *how* SpeakEasy decides)
 and the flow diagrams in `docs/diagrams/`.
 
 Build the actual PowerPoint/Slides slide from this. Every label traces to real code — see

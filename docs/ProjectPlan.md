@@ -1,4 +1,4 @@
-# Product Brief: Real-Time Speech Practice Coach
+# Product Brief: SpeakEasy (Real-Time Speech Practice Coach)
 ### Handoff document for next-stage planning (revision 2)
 
 ## One-line summary

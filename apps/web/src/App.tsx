@@ -6,6 +6,7 @@ import { Dashboard } from './dashboard/Dashboard.js';
 import { Report } from './report/Report.js';
 import { ContextForm } from './context/ContextForm.js';
 import { History } from './history/History.js';
+import { AudioCoachControl } from './coach/AudioCoachControl.js';
 import {
   fetchLatestContext,
   fetchSession,
@@ -153,6 +154,7 @@ export function App() {
             initialContext={prefill}
             onChange={(ctx) => (contextRef.current = ctx)}
           />
+          <AudioCoachControl />
           <div className="controls">
             <button className="btn btn--primary" onClick={onStart}>
               Start rehearsal
@@ -180,6 +182,7 @@ export function App() {
             </button>
             {error && <span className="error">{error}</span>}
           </div>
+          <AudioCoachControl />
           <Dashboard snapshot={snapshot} />
         </>
       )}

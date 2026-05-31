@@ -1,6 +1,6 @@
 # QuackHacksWildcats
 
-Hackathon project: a browser-based real-time speech practice coach. See
+Hackathon project: **SpeakEasy**, a browser-based real-time speech practice coach. See
 [docs/ProjectPlan.md](docs/ProjectPlan.md) for the product brief and staged plan.
 
 ## Competition: Google Track
