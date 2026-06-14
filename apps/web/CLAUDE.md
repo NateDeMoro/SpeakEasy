@@ -51,7 +51,7 @@ is fetched.
   output device (no device selection).
 
 ## Theme swap
-Replace values in `theme/tokens.css` with another `design-md` system; keep variable names stable.
+Replace values in `theme/tokens.css`; keep variable names stable.
 Two palettes coexist: the dark `:root` block (default) and the additive `:root[data-theme='light']`
 override (Direction A "Soft paper"). `ThemeToggle` (mounted once in `main.tsx`) flips the `data-theme`
 attribute on `<html>` live; an inline script in `index.html` re-applies the saved choice before paint.

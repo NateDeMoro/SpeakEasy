@@ -74,7 +74,6 @@ The Hono app is mounted at `/api` (`basePath`); the Vite dev proxy mirrors this.
 | docs/BackendSlide.md | Pitch-slide spec: two decision engines (live nudges + Gemini tone) | making the "how it works" slide |
 | docs/StackSlide.md | Pitch-slide spec: Google-product stack diagram (one service per tier) | making the architecture/stack slide |
 | docs/PrePlanning.md | Pre-hackathon notes | recalling early ideas |
-| design-md/ | Reference design systems; web uses Linear (near-black) tokens | styling/swapping the theme |
 | firebase.json / .firebaserc | Hosting + `/api/**`→Cloud Run rewrite + Firestore rules/indexes; default project | changing deploy/routing |
 | firestore.rules / firestore.indexes.json | Path-based per-user session rules (deny all else); empty indexes (subcollection needs none) | changing the data model or access |
 | cloudbuild.yaml | Builds the API container (apps/api/Dockerfile) for Cloud Run | changing the API build |

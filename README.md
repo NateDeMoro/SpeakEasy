@@ -1,39 +1,39 @@
 # SpeakEasy
 
-A browser-based, real-time speech practice coach. Rehearse a specific talk, get light
-live audio feedback while you speak, and receive a detailed after-the-fact report tuned to
-your actual speech material and audience — including whether your **tone matched your
-message**.
+[![Live app](https://img.shields.io/badge/Live-speakeasy--498118.web.app-5E6AD2?style=flat)](https://speakeasy-498118.web.app)
+[![Firebase](https://img.shields.io/badge/Firebase-Hosting_·_Auth_·_Firestore-FFCA28?style=flat&logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![Cloud Run](https://img.shields.io/badge/Cloud_Run-API-4285F4?style=flat&logo=google-cloud&logoColor=white)](https://cloud.google.com/run)
+[![Vertex AI](https://img.shields.io/badge/Vertex_AI-Gemini_2.5_Flash-4285F4?style=flat&logo=google-cloud&logoColor=white)](https://cloud.google.com/vertex-ai)
+[![Speech-to-Text](https://img.shields.io/badge/Speech--to--Text-v2-4285F4?style=flat&logo=google-cloud&logoColor=white)](https://cloud.google.com/speech-to-text)
+[![React](https://img.shields.io/badge/React_+_Vite-61DAFB?style=flat&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-Built for the **Google Track** at QuackHacks — Google products, top to bottom.
+A browser-based, real-time speech practice coach for **one upcoming talk** — a student
+presentation, a professional pitch, a wedding toast. Paste your material, rehearse with light
+live audio feedback, then get a detailed report tuned to your actual speech and audience —
+including whether your **tone matched your message**.
 
-## 🎥 Demo
+Built for the **Google Track** at QuackHacks.
+
+- **Live coaching** — volume, pace, pauses/dead air, and pitch tracked on-device; calm dashboard
+  plus a single non-distracting nudge while you speak.
+- **Context-aware report** — Gemini judges delivery against your slides, script, notes, and
+  audience ("too much jargon," "you skipped your second main point").
+- **Tone–content mismatch** — compares *what* you said (sentiment) against *how* you said it
+  (prosody), flagging contradictions like an exciting result delivered flat.
+- **Stress-weighted transcript** — per-word acoustic stress weights the report transcript so
+  emphasized words read heavier.
+- **Per-user history** — sessions persist behind Google sign-in for cross-rehearsal review.
+- **Access & cost controls** — email allowlist + ~$3/day per-user cost cap + 10-minute recording
+  limit so hosting spend stays bounded.
+
+See [docs/ProjectPlan.md](docs/ProjectPlan.md) for the full product brief and staged plan.
+
+## Demo
 
 [**Watch the demo on YouTube →**](https://www.youtube.com/watch?v=9MeOcQKm9ZI)
 
 **Live app:** https://speakeasy-498118.web.app
-
-## What it does
-
-SpeakEasy is built for an ordinary person prepping one upcoming talk — a student, a
-professional, someone giving a wedding toast — not aspiring pros committing to months of
-skill-building. The job is "get this one talk ready," so the advice is about *this* speech
-("cut your intro, slow down on the key point"), not abstract skill scores.
-
-- **Live coaching** — volume, pace, pauses/dead air, and pitch are tracked on-device while
-  you speak, surfaced as a calm dashboard plus a single non-distracting nudge.
-- **Context-aware report** — paste your slides, script, or notes and describe the audience
-  and setting; Gemini judges your delivery against the real talk and room ("too much jargon
-  for this audience," "you skipped your second main point").
-- **Tone–content mismatch** — compares *what* you said (Gemini sentiment) against *how* you
-  said it (prosody), flagging contradictions like an exciting result delivered flat.
-- **Stress-weighted transcript** — per-word acoustic stress weights the report transcript so
-  the words you emphasized read heavier.
-- **Per-user history** — sessions persist behind Google sign-in for cross-rehearsal review.
-- **Access & cost controls** — gated behind Google sign-in plus an email allowlist, with a per-user
-  ~$3/day estimated-cost cap and a 10-minute recording limit so hosting spend stays bounded.
-
-See [docs/ProjectPlan.md](docs/ProjectPlan.md) for the full product brief and staged plan.
 
 ## Built on Google, top to bottom
 

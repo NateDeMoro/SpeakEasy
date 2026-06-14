@@ -1,9 +1,9 @@
 /*
- * Design tokens — sourced from design-md/elevenlabs/DESIGN.md.
+ * Design tokens — Linear-inspired near-black palette (dark default + light override).
  *
- * SWAP POINT: to change the app's aesthetic, replace the values in this file with another
- * design-md system. Components reference only these CSS variables (never raw hex), so a swap
- * is a single-file change. Keep the --c-* / --t-* variable NAMES stable; only change values.
+ * SWAP POINT: to change the app's aesthetic, replace the values in this file. Components
+ * reference only these CSS variables (never raw hex), so a swap is a single-file change.
+ * Keep the --c-* / --t-* variable NAMES stable; only change values.
  */
 
 :root {
